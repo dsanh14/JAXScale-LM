@@ -1,0 +1,22 @@
+# Data-parallel training over all available devices.
+#
+# On a machine without multiple accelerators you can *simulate* devices on
+# CPU for development (NOT for performance claims) by setting, before launch:
+#
+#   XLA_FLAGS=--xla_force_host_platform_device_count=8 \
+#     uv run python scripts/train.py --config configs/train/multi_device.yaml
+#
+# The global batch (data.batch_size) is sharded across the data axis, so it
+# must be divisible by the data-axis size.
+defaults:
+  - single_device.yaml
+
+project:
+  run_name: tiny_tinystories_dp
+
+data:
+  batch_size: 16
+
+distributed:
+  data_axis_size: -1   # all devices
+  model_axis_size: 1

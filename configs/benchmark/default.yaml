@@ -1,0 +1,30 @@
+# Default benchmark sweep over the smoke-sized tiny model. CPU-completable.
+defaults:
+  - ../model/tiny.yaml
+
+project:
+  run_name: bench_default
+  seed: 0
+
+model:
+  num_layers: 2
+  hidden_size: 64
+  intermediate_size: 256
+  num_attention_heads: 4
+  num_key_value_heads: 4
+  max_sequence_length: 256
+
+data:
+  source: synthetic
+  sequence_length: 64
+  batch_size: 4
+
+benchmark:
+  warmup_iterations: 3
+  measure_iterations: 10
+  suites: [compilation, training, prefill, decode, e2e, cache]
+  batch_sizes: [1, 2, 4]
+  prompt_lengths: [16, 64]
+  generate_lengths: [32]
+  sequence_lengths: [64, 128]
+  precisions: [float32]

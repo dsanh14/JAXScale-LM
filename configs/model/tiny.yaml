@@ -1,0 +1,23 @@
+# Tiny preset: ~1.8M parameters. CPU-friendly; used for smoke tests and
+# fast experiments. Byte-level tokenizer (vocab 259 = 256 bytes + specials).
+model:
+  vocab_size: 259
+  max_sequence_length: 256
+  num_layers: 4
+  hidden_size: 192
+  intermediate_size: 768
+  num_attention_heads: 6
+  num_key_value_heads: 6
+  dropout_rate: 0.0
+  attention_dropout_rate: 0.0
+  normalization_epsilon: 1.0e-6
+  parameter_dtype: float32
+  compute_dtype: float32
+  tie_embeddings: true
+  use_bias: false
+  initializer_range: 0.02
+  rope_theta: 10000.0
+
+tokenizer:
+  kind: byte
+  vocab_size: 259

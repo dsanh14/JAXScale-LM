@@ -1,0 +1,46 @@
+# End-to-end CPU smoke test: trains a sub-megabyte model on deterministic
+# synthetic data in well under a minute. Used by `make train-smoke` and the
+# integration test suite.
+defaults:
+  - ../model/tiny.yaml
+
+project:
+  run_name: cpu_smoke
+  seed: 0
+
+# Shrink the tiny preset further for speed; this is the spec's smoke profile.
+model:
+  num_layers: 2
+  hidden_size: 64
+  intermediate_size: 256
+  num_attention_heads: 4
+  num_key_value_heads: 4
+  max_sequence_length: 128
+  dropout_rate: 0.0
+  attention_dropout_rate: 0.0
+
+data:
+  source: synthetic
+  sequence_length: 64
+  batch_size: 4
+  validation_fraction: 0.25
+  synthetic_num_documents: 64
+  synthetic_document_length: 256
+
+optimizer:
+  learning_rate: 1.0e-3
+  warmup_steps: 2
+  schedule: cosine
+
+training:
+  max_steps: 10
+  gradient_accumulation_steps: 1
+  log_interval: 1
+
+evaluation:
+  interval_steps: 5
+  num_batches: 2
+
+checkpoint:
+  interval_steps: 5
+  max_to_keep: 2

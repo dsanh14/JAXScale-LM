@@ -1,0 +1,19 @@
+# Default generation settings; the checkpoint supplies the model config.
+defaults:
+  - ../model/tiny.yaml
+
+inference:
+  max_new_tokens: 64
+  temperature: 0.8
+  top_k: 50
+  top_p: 0.95
+  do_sample: true
+  seed: 0
+  use_kv_cache: true
+
+serving:
+  host: 127.0.0.1
+  port: 8000
+  warmup: true
+  max_prompt_tokens: 1024
+  max_new_tokens_limit: 512
