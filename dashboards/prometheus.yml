@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: jaxscale-lm
+    static_configs:
+      - targets: ["jaxscale-lm:8000"]

@@ -1,0 +1,28 @@
+services:
+  jaxscale-lm:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./artifacts:/app/artifacts
+    command:
+      - "--checkpoint"
+      - "artifacts/checkpoints/cpu_smoke/latest"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./dashboards/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - jaxscale-lm

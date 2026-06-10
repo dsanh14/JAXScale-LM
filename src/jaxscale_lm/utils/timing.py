@@ -49,6 +49,19 @@ class TimingResult:
         return data[lo] + (data[hi] - data[lo]) * (pos - lo)
 
 
+def jit_cache_size(fn: Any) -> int | None:
+    """Number of compiled entries in a ``jax.jit`` function's cache.
+
+    Used to detect unexpected recompilation (e.g. a shape change) during
+    training and benchmark runs. Returns None when the introspection API is
+    unavailable on this JAX version.
+    """
+    cache_size = getattr(fn, "_cache_size", None)
+    if cache_size is None:
+        return None
+    return int(cache_size())
+
+
 def time_synchronized(fn: Callable[[], Any]) -> float:
     """Run ``fn`` once and return wall seconds including device completion."""
     start = time.perf_counter()
