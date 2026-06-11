@@ -21,7 +21,11 @@ htmlcov/
 # Project artifacts (checkpoints, benchmarks, datasets, tokenizers)
 artifacts/*
 !artifacts/.gitkeep
-data/
+# Root-level dataset cache only — anchored so src/jaxscale_lm/data/ stays tracked.
+/data/
 
 # Environment
 .env
+
+# Claude Code session state
+.claude/
