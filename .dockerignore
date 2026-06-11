@@ -1,0 +1,29 @@
+# Keep the Docker build context to what the Dockerfile actually copies
+# (pyproject.toml, uv.lock, README.md, src/, configs/, scripts/).
+
+# VCS and assistant state
+.git
+.claude
+
+# Local environments and secrets
+.venv
+.env
+
+# Run outputs and local dataset cache
+artifacts
+data
+
+# Caches and bytecode
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Editor and OS files
+.DS_Store
+.idea
+.vscode
+*.swp

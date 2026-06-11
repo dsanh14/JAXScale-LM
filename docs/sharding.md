@@ -80,7 +80,7 @@ with XLA's host-platform override, set *before* JAX initializes:
 
 ```bash
 XLA_FLAGS=--xla_force_host_platform_device_count=8 \
-  uv run python scripts/inspect_devices.py
+  uv run --no-sync python scripts/inspect_devices.py
 ```
 
 This carves the CPU into 8 XLA devices that share the same silicon. It

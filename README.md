@@ -70,9 +70,15 @@ locked environment):
 
 ```bash
 git clone <this-repo> && cd JAXScale-LM
-make install          # = uv sync --extra dev
-uv run python scripts/inspect_devices.py
+make install          # one-time environment sync (re-run after dependency changes)
+uv run --no-sync python scripts/inspect_devices.py
 ```
+
+`make install` is the project's single sync point; all Makefile targets run
+with `uv run --no-sync` against that environment. (This also sidesteps a
+macOS quirk where a re-sync can mark venv files `UF_HIDDEN`, which
+Python ≥ 3.12.4 treats as a reason to skip `.pth` files — if imports ever
+fail with `ModuleNotFoundError: jaxscale_lm`, re-run `make install`.)
 
 ## CPU smoke test (~1 minute total)
 
@@ -89,32 +95,32 @@ make serve            # serve the smoke checkpoint on :8000
 Training:
 
 ```bash
-uv run python scripts/download_data.py  --config configs/train/cpu_smoke.yaml
-uv run python scripts/train_tokenizer.py --config configs/train/single_device.yaml
-uv run python scripts/train.py          --config configs/train/cpu_smoke.yaml
+uv run --no-sync python scripts/download_data.py  --config configs/train/cpu_smoke.yaml
+uv run --no-sync python scripts/train_tokenizer.py --config configs/train/single_device.yaml
+uv run --no-sync python scripts/train.py          --config configs/train/cpu_smoke.yaml
 ```
 
 Resume exactly from the latest (or a specific) checkpoint:
 
 ```bash
-uv run python scripts/train.py --config configs/train/single_device.yaml --resume latest
-uv run python scripts/train.py --config configs/train/single_device.yaml --resume 200
+uv run --no-sync python scripts/train.py --config configs/train/single_device.yaml --resume latest
+uv run --no-sync python scripts/train.py --config configs/train/single_device.yaml --resume 200
 ```
 
 Evaluation:
 
 ```bash
-uv run python scripts/evaluate.py --checkpoint artifacts/checkpoints/cpu_smoke/latest
+uv run --no-sync python scripts/evaluate.py --checkpoint artifacts/checkpoints/cpu_smoke/latest
 ```
 
 Generation (cached vs naive):
 
 ```bash
-uv run python scripts/generate.py \
+uv run --no-sync python scripts/generate.py \
   --checkpoint artifacts/checkpoints/cpu_smoke/latest \
   --prompt "Once upon a time" --max-new-tokens 64 --use-kv-cache
 
-uv run python scripts/generate.py \
+uv run --no-sync python scripts/generate.py \
   --checkpoint artifacts/checkpoints/cpu_smoke/latest \
   --prompt "Once upon a time" --max-new-tokens 64 --no-kv-cache
 ```
@@ -122,21 +128,21 @@ uv run python scripts/generate.py \
 Serving:
 
 ```bash
-uv run python scripts/serve.py \
+uv run --no-sync python scripts/serve.py \
   --checkpoint artifacts/checkpoints/cpu_smoke/latest --host 127.0.0.1 --port 8000
 ```
 
 Benchmarks:
 
 ```bash
-uv run python scripts/benchmark.py --config configs/benchmark/default.yaml
-uv run python scripts/benchmark.py --config configs/benchmark/default.yaml --quick
+uv run --no-sync python scripts/benchmark.py --config configs/benchmark/default.yaml
+uv run --no-sync python scripts/benchmark.py --config configs/benchmark/default.yaml --quick
 ```
 
 Checkpoint inspection:
 
 ```bash
-uv run python scripts/verify_checkpoint.py \
+uv run --no-sync python scripts/verify_checkpoint.py \
   --checkpoint artifacts/checkpoints/cpu_smoke/latest --restore
 ```
 
