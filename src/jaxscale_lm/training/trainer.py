@@ -14,7 +14,6 @@ import time
 from collections.abc import Iterator
 
 import jax
-import jax.numpy as jnp
 import numpy as np
 from flax import nnx
 
@@ -39,7 +38,7 @@ from jaxscale_lm.training.step import make_eval_step, make_train_step
 from jaxscale_lm.types import Batch
 from jaxscale_lm.utils.logging import get_logger, log_event
 from jaxscale_lm.utils.seed import make_key
-from jaxscale_lm.utils.timing import jit_cache_size
+from jaxscale_lm.utils.timing import compilation_count
 
 _logger = get_logger("trainer")
 
@@ -159,7 +158,9 @@ class Trainer:
 
         batches = self._stacked_train_batches(start_step)
         last_eval: dict[str, float] = {}
-        compile_count_seen = 0
+        # Baseline compile count; growth after the first step's compilations
+        # signals an unexpected recompile (shape or static-arg change).
+        compiles_baseline: int | None = None
         window_start = time.perf_counter()
         window_tokens = 0.0
 
@@ -191,13 +192,22 @@ class Trainer:
                     window_start = time.perf_counter()
                     window_tokens = 0.0
 
-                    cache_size = jit_cache_size(self._train_step)
-                    if cache_size is not None and cache_size > max(compile_count_seen, 1):
+                    compiles = compilation_count()
+                    if compiles_baseline is None:
+                        # Set the baseline only after the first evaluation has
+                        # run, so the expected train-step and eval-step
+                        # compilations are absorbed before we start warning.
+                        if step + 1 >= cfg.evaluation.interval_steps:
+                            compiles_baseline = compiles
+                    elif compiles > compiles_baseline:
                         _logger.warning(
-                            "train step recompiled",
-                            extra={"compilations": cache_size, "step": step + 1},
+                            "unexpected recompilation detected",
+                            extra={
+                                "new_compilations": compiles - compiles_baseline,
+                                "step": step + 1,
+                            },
                         )
-                    compile_count_seen = max(compile_count_seen, cache_size or 0)
+                        compiles_baseline = compiles
 
                 if (step + 1) % cfg.evaluation.interval_steps == 0:
                     last_eval = self.evaluate()

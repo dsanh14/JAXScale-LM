@@ -109,7 +109,7 @@ def create_app(config: Config, initial_checkpoint: str | None = None) -> FastAPI
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @app.post("/v1/models/load", response_model=LoadResponse)
-    async def load_model(body: LoadRequest, request: Request) -> LoadResponse:
+    async def load_model(body: LoadRequest) -> LoadResponse:
         try:
             model_id, load_s, warmup_s = manager.load(body.checkpoint_path, body.model_id)
         except FileNotFoundError as exc:

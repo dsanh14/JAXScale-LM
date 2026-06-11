@@ -14,10 +14,11 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture(scope="module")
-def trained_checkpoint(tmp_path_factory, request) -> tuple[Config, str]:
+def trained_checkpoint(tmp_path_factory) -> tuple[Config, str]:
     """Train the smoke model once for all serving tests."""
-    from jaxscale_lm.config import load_config
     import os
+
+    from jaxscale_lm.config import load_config
 
     config_path = os.path.join(os.path.dirname(__file__), "..", "..", "configs")
     base = load_config(os.path.join(config_path, "train", "cpu_smoke.yaml"))

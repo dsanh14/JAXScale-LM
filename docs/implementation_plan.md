@@ -54,10 +54,22 @@ dashboards/, artifacts/).
 
 ### Deviations from the suggested layout
 
-None planned. If any module is merged/split during implementation the change
-will be recorded here. (Update M3: `model/embeddings.py` holds both token
-embedding and RoPE helpers — RoPE is consumed inside attention; no separate
-file was warranted.)
+Recorded as implementation progressed:
+
+- `model/config.py` was **not** created: `ModelConfig` lives in the central
+  `config.py` so cross-section validation (e.g. tokenizer vocab ==
+  model vocab, data sequence length <= model context) happens in one place.
+- `model/embeddings.py` holds both the token embedding and the RoPE
+  helpers; RoPE is consumed inside attention and did not warrant a file.
+- `training/state.py` contains `TrainState` as a NamedTuple pytree (params,
+  optimizer state, step, root RNG key) rather than a Flax TrainState class —
+  smaller surface, identical capability, checkpoint-friendly.
+- Dropout RNGs are passed *at call time* (`rngs=` argument through the
+  module tree) instead of being stored in modules, keeping the model state
+  pure parameters and the jitted train step explicitly seeded.
+- `benchmark/inference.py` covers the prefill/decode/e2e/cache suites in
+  one module (they share a jitted-function setup); the suite names in
+  records still match the spec's categories.
 
 ## 3. Milestones
 

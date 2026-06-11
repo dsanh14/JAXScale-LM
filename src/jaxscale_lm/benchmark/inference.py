@@ -115,7 +115,7 @@ def run_e2e(config: Config, setup: _Setup) -> list[BenchmarkRecord]:
                 continue
             ids = setup.prompt(1, prompt_len, bench.seed)
 
-            def generate_once():
+            def generate_once(ids=ids, gen_len=gen_len):
                 cache = init_cache(config.model, 1, setup.capacity)
                 return cached_generate(
                     setup.prefill,
@@ -176,7 +176,7 @@ def run_cache_comparison(config: Config, setup: _Setup) -> list[BenchmarkRecord]
             continue
         ids = setup.prompt(1, prompt_len, bench.seed)
 
-        def cached_once():
+        def cached_once(ids=ids, gen_len=gen_len):
             cache = init_cache(config.model, 1, setup.capacity)
             return cached_generate(
                 setup.prefill,
@@ -192,7 +192,7 @@ def run_cache_comparison(config: Config, setup: _Setup) -> list[BenchmarkRecord]
                 vocab_size=setup.vocab,
             )
 
-        def naive_once():
+        def naive_once(ids=ids, gen_len=gen_len):
             return naive_generate(
                 setup.naive,
                 setup.params,

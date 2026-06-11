@@ -49,17 +49,32 @@ class TimingResult:
         return data[lo] + (data[hi] - data[lo]) * (pos - lo)
 
 
-def jit_cache_size(fn: Any) -> int | None:
-    """Number of compiled entries in a ``jax.jit`` function's cache.
+# XLA backend-compilation event key emitted by jax (jax._src.dispatch).
+_BACKEND_COMPILE_EVENT = "/jax/core/compile/backend_compile_duration"
+_compile_count = 0
+_listener_registered = False
 
-    Used to detect unexpected recompilation (e.g. a shape change) during
-    training and benchmark runs. Returns None when the introspection API is
-    unavailable on this JAX version.
+
+def _on_event_duration(event: str, duration: float, **_: Any) -> None:
+    global _compile_count
+    if event == _BACKEND_COMPILE_EVENT:
+        _compile_count += 1
+
+
+def compilation_count() -> int:
+    """Global count of XLA backend compilations observed in this process.
+
+    Counting starts at the first call (the listener is registered lazily),
+    so call it once *before* the region you want to watch; an unexpected
+    increase between two reads means something recompiled — typically a
+    shape or static-argument change. This is process-global, not
+    per-function: JAX no longer exposes per-jit cache sizes publicly.
     """
-    cache_size = getattr(fn, "_cache_size", None)
-    if cache_size is None:
-        return None
-    return int(cache_size())
+    global _listener_registered
+    if not _listener_registered:
+        jax.monitoring.register_event_duration_secs_listener(_on_event_duration)
+        _listener_registered = True
+    return _compile_count
 
 
 def time_synchronized(fn: Callable[[], Any]) -> float:

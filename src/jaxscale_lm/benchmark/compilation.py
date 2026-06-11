@@ -20,7 +20,7 @@ from flax import nnx
 from jaxscale_lm.config import Config
 from jaxscale_lm.benchmark.schema import BenchmarkRecord, record_from_timing
 from jaxscale_lm.model.transformer import build_model
-from jaxscale_lm.utils.timing import jit_cache_size, measure, time_synchronized
+from jaxscale_lm.utils.timing import compilation_count, measure, time_synchronized
 
 
 def _forward_fn(graphdef: nnx.GraphDef) -> Callable[[nnx.State, jax.Array], jax.Array]:
@@ -89,7 +89,7 @@ def run(config: Config) -> list[BenchmarkRecord]:
             "compilation", f"forward_seq{seq_len}", "steady_state", steady, **common
         )
         rec.extra["first_call_over_steady"] = first_s / max(steady.median_s, 1e-12)
-        rec.extra["jit_cache_size"] = jit_cache_size(jitted)
+        rec.extra["process_compilations_so_far"] = compilation_count()
         records.append(rec)
 
     # Shape recompilation: one jit, three shape changes; first-call cost
@@ -102,7 +102,9 @@ def run(config: Config) -> list[BenchmarkRecord]:
     ]
     for b, s in shapes:
         ids = jax.random.randint(jax.random.key(bench.seed), (b, s), 0, config.model.vocab_size)
+        before = compilation_count()
         elapsed = time_synchronized(lambda ids=ids: jitted(params, ids))
+        compiled = compilation_count() - before
         records.append(
             BenchmarkRecord(
                 suite="compilation",
@@ -117,7 +119,7 @@ def run(config: Config) -> list[BenchmarkRecord]:
                 dtype=config.model.compute_dtype,
                 measure_iterations=1,
                 warmup_iterations=0,
-                extra={"jit_cache_size_after": jit_cache_size(jitted)},
+                extra={"recompiled": bool(compiled)},
             )
         )
     return records
