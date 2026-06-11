@@ -76,28 +76,57 @@ Recorded as implementation progressed:
 - **M0** Repository audit + this plan. ✅
 - **M1** Foundation: pyproject + uv.lock, package skeleton, typed config
   loader, structured logging, seeding utils, timing utils, device
-  inspection script, Ruff + Pyright + Pytest wiring, Makefile, .gitignore.
+  inspection script, Ruff + Pyright + Pytest wiring, Makefile, .gitignore. ✅
 - **M2** Data: tokenizer protocol (byte + BPE), download script, packing
-  (concat-and-chunk), deterministic loader, synthetic fixture, tests.
+  (concat-and-chunk), deterministic loader, synthetic fixture, tests. ✅
 - **M3** Model: embeddings, RoPE, causal attention (train/prefill/decode
   paths), MLP, block, transformer, KV-cache structure; shape + causality +
-  numerical tests; parameter-count utility.
+  numerical tests; parameter-count utility. ✅
 - **M4** Training: loss/metrics, AdamW + schedule + weight-decay masking,
   gradient clipping, gradient accumulation (scan), jitted train step,
-  evaluation loop, trainer, CPU smoke training run.
+  evaluation loop, trainer, CPU smoke training run. ✅
 - **M5** Checkpointing: Orbax manager wrapper, metadata, save/restore,
-  exact-resumption integration test (N+M vs interrupted N→restore→M).
+  exact-resumption integration test (N+M vs interrupted N→restore→M). ✅
 - **M6** Inference: sampling (greedy/temperature/top-k/top-p), naive
   generation, prefill+decode with KV cache, equivalence and determinism
-  tests, generate CLI.
+  tests, generate CLI. ✅
 - **M7** Distributed: mesh builder, partitioning specs, placement helpers,
-  diagnostics, single-device fallback, simulated multi-device CPU tests.
+  diagnostics, single-device fallback, simulated multi-device CPU tests. ✅
 - **M8** Benchmarks: schema, compilation/training/prefill/decode/e2e/cache
-  comparison suites, memory probe, runner, plots, benchmark CLI.
+  comparison suites, memory probe, runner, plots, benchmark CLI. ✅
 - **M9** Serving: FastAPI app, schemas, registry, lifecycle/warmup,
-  Prometheus metrics, integration tests via httpx/ASGI.
+  Prometheus metrics, integration tests via httpx/ASGI. ✅
 - **M10** Packaging & docs: Dockerfile, docker-compose, README, all docs/,
-  Mermaid diagrams, run real CPU benchmarks → docs/results.md.
+  Mermaid diagrams, run real CPU benchmarks → docs/results.md. ✅
+
+### Final verification pass (2026-06-11)
+
+Fixes applied while bringing the full gate green:
+
+- Lint/format: 21 files reformatted, 17 Ruff findings fixed
+  (`StrEnum` for `ModelStatus`, explicit `zip(strict=)`, unused locals).
+- Pyright: 16 errors fixed — `loss_stats` accepts host NumPy arrays,
+  `optax.apply_updates` result cast, Optional coalescing in plots,
+  jaxlib version via `importlib.metadata`, metadata None-guard in
+  `Checkpointer._check_compatibility`, monitoring-listener signature.
+- `optax.global_norm` → `optax.tree.norm` (deprecation).
+- **Resumption semantics**: `Trainer.train(until_step=)` added so the
+  exact-resumption test interrupts a run *without* shrinking
+  `max_steps` — a shorter horizon changes the cosine-decay schedule and
+  the first N updates would legitimately differ.
+- **Checkpoint restore order**: metadata is restored and validated
+  *before* the state so incompatible configs fail with a clear
+  ValueError instead of an Orbax shape error; `read_metadata` raises
+  FileNotFoundError for missing directories (serving maps it to 404).
+- macOS env quirk: uv-installed venv files carry `UF_HIDDEN`, which
+  Python ≥ 3.12.4 skips for `.pth` files; `make install` now clears the
+  flag and `RUN` pins `--extra dev` to avoid sync churn (README note).
+- Real benchmark run `20260611_085752_0eb57a` (29 records, 0 failed)
+  transcribed into docs/results.md.
+- Verified end-to-end on this machine: make train-smoke /
+  evaluate-smoke / generate-smoke / benchmark-smoke, `--resume latest`,
+  all script `--help`s, live serving (health/ready/models/generate/
+  metrics), verify_checkpoint, download_data, inspect_devices.
 
 ## 4. Expected risks
 

@@ -1,0 +1,112 @@
+project:
+  name: jaxscale-lm
+  run_name: bench_default
+  artifacts_dir: artifacts
+  seed: 0
+data:
+  source: synthetic
+  local_path: null
+  cache_dir: artifacts/data
+  sequence_length: 64
+  batch_size: 4
+  validation_fraction: 0.1
+  shuffle: true
+  drop_remainder: true
+  max_train_documents: null
+  synthetic_num_documents: 64
+  synthetic_document_length: 256
+tokenizer:
+  kind: byte
+  vocab_size: 259
+  path: null
+model:
+  vocab_size: 259
+  max_sequence_length: 256
+  num_layers: 2
+  hidden_size: 64
+  intermediate_size: 256
+  num_attention_heads: 4
+  num_key_value_heads: 4
+  dropout_rate: 0.0
+  attention_dropout_rate: 0.0
+  normalization_epsilon: 1.0e-06
+  parameter_dtype: float32
+  compute_dtype: float32
+  tie_embeddings: true
+  use_bias: false
+  initializer_range: 0.02
+  rope_theta: 10000.0
+optimizer:
+  learning_rate: 0.0003
+  weight_decay: 0.01
+  beta1: 0.9
+  beta2: 0.95
+  eps: 1.0e-08
+  grad_clip_norm: 1.0
+  warmup_steps: 10
+  schedule: cosine
+  min_learning_rate_ratio: 0.1
+training:
+  max_steps: 100
+  gradient_accumulation_steps: 1
+  log_interval: 10
+distributed:
+  data_axis_size: -1
+  model_axis_size: 1
+  axis_names:
+  - data
+  - model
+checkpoint:
+  interval_steps: 50
+  max_to_keep: 3
+  keep_best: true
+  best_metric: validation_loss
+  directory: null
+evaluation:
+  interval_steps: 50
+  num_batches: 8
+inference:
+  max_new_tokens: 64
+  temperature: 1.0
+  top_k: 0
+  top_p: 1.0
+  do_sample: false
+  seed: 0
+  use_kv_cache: true
+  repetition_penalty: null
+serving:
+  host: 127.0.0.1
+  port: 8000
+  warmup: true
+  max_prompt_tokens: 1024
+  max_new_tokens_limit: 512
+  registry_path: null
+benchmark:
+  output_dir: null
+  warmup_iterations: 3
+  measure_iterations: 10
+  seed: 0
+  suites:
+  - compilation
+  - training
+  - prefill
+  - decode
+  - e2e
+  - cache
+  batch_sizes:
+  - 1
+  - 2
+  - 4
+  prompt_lengths:
+  - 16
+  - 64
+  generate_lengths:
+  - 32
+  sequence_lengths:
+  - 64
+  - 128
+  precisions:
+  - float32
+logging:
+  level: INFO
+  json_format: false
