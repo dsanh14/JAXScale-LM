@@ -127,6 +127,13 @@ Fixes applied while bringing the full gate green:
   evaluate-smoke / generate-smoke / benchmark-smoke, `--resume latest`,
   all script `--help`s, live serving (health/ready/models/generate/
   metrics), verify_checkpoint, download_data, inspect_devices.
+- **Docker verified 2026-06-11** on a native linux/arm64 image
+  (Apple-Silicon host): standalone image builds (~361 MB);
+  /health and /metrics return 200 and /ready correctly returns 503
+  without a checkpoint; under Docker Compose the smoke checkpoint
+  restores through Orbax at step 10 (115,200 parameters), warmup takes
+  ~0.8 s, /ready returns 200 with the model loaded, Prometheus scrapes
+  /metrics, and the stack shuts down cleanly.
 
 ## 4. Expected risks
 

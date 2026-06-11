@@ -146,6 +146,23 @@ uv run --no-sync python scripts/verify_checkpoint.py \
   --checkpoint artifacts/checkpoints/cpu_smoke/latest --restore
 ```
 
+Docker (CPU serving image; mount a trained checkpoint under `/app/artifacts`):
+
+```bash
+make docker-build
+docker compose up -d     # serving on :8000 + Prometheus on :9090
+curl -i localhost:8000/ready
+docker compose down
+```
+
+Verified 2026-06-11 on a native linux/arm64 image (Apple-Silicon host):
+the standalone image (~361 MB) builds and serves `/health` and `/metrics`
+(200) and correctly reports `/ready` 503 with no checkpoint; under Docker
+Compose with the smoke checkpoint mounted, Orbax restores step 10
+(115,200 parameters), warmup completes in ~0.8 s, `/ready` returns 200
+with the model loaded, Prometheus scrapes `/metrics`, and the stack shuts
+down cleanly.
+
 ## Example API request
 
 ```bash
