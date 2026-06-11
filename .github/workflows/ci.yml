@@ -1,0 +1,41 @@
+# Minimal CPU-only CI: lint, type check, full CPU test suite (incl.
+# simulated multi-device), and the tracked-files-only export check.
+#
+# Deliberately excluded: GPU/TPU jobs (no such runners), Docker build and
+# publishing (the image and Compose stack were verified locally on a
+# native linux/arm64 build — see README "Docker"), and any cloud
+# credentials.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JAX_PLATFORMS: cpu
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install locked environment
+        run: uv sync --frozen --extra dev
+
+      - name: Lint
+        run: make lint
+
+      - name: Type check
+        run: make typecheck
+
+      - name: CPU tests
+        run: make test-all
+
+      - name: Clean-export check
+        run: make check-export
