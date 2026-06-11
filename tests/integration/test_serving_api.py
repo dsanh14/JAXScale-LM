@@ -70,14 +70,13 @@ class TestLifecycleEndpoints:
             model_id = c.get("/v1/models").json()["models"][0]["model_id"]
             assert c.post("/v1/models/unload", json={"model_id": model_id}).status_code == 200
             assert c.get("/ready").status_code == 503
-            assert c.post(
-                "/v1/generate", json={"prompt": "hi", "max_new_tokens": 4}
-            ).status_code == 503
+            assert (
+                c.post("/v1/generate", json={"prompt": "hi", "max_new_tokens": 4}).status_code
+                == 503
+            )
 
     def test_load_bad_path_404(self, client):
-        response = client.post(
-            "/v1/models/load", json={"checkpoint_path": "/nonexistent/ckpt"}
-        )
+        response = client.post("/v1/models/load", json={"checkpoint_path": "/nonexistent/ckpt"})
         assert response.status_code == 404
 
 
@@ -138,9 +137,7 @@ class TestGeneration:
     def test_invalid_body_422(self, client):
         assert client.post("/v1/generate", json={"prompt": ""}).status_code == 422
         assert (
-            client.post(
-                "/v1/generate", json={"prompt": "x", "temperature": -1.0}
-            ).status_code
+            client.post("/v1/generate", json={"prompt": "x", "temperature": -1.0}).status_code
             == 422
         )
 

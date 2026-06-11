@@ -52,10 +52,12 @@ class TestExactResumption:
         trainer_full = Trainer(cfg_full)
         trainer_full.train()
 
-        # Interrupted: N steps, checkpoint, fresh trainer, M more steps.
-        cfg_n = _with_updates(make_config("resumed"), max_steps=n)
+        # Interrupted: same N+M config stopped at N (an interrupted run keeps
+        # its schedule horizon — a shorter max_steps would change the LR
+        # trajectory), checkpoint, fresh trainer, M more steps.
+        cfg_n = _with_updates(make_config("resumed"), max_steps=n + m)
         trainer_n = Trainer(cfg_n)
-        trainer_n.train()  # saves at step 5 (checkpoint.interval_steps=5)
+        trainer_n.train(until_step=n)  # saves at step 5 (checkpoint.interval_steps=5)
         del trainer_n
 
         cfg_resume = _with_updates(make_config("resumed"), max_steps=n + m)

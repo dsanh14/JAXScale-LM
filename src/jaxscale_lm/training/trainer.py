@@ -15,7 +15,6 @@ from collections.abc import Iterator
 
 import jax
 import numpy as np
-from flax import nnx
 
 from jaxscale_lm.config import Config, save_resolved_config
 from jaxscale_lm.data.loader import DataBundle, build_data, eval_batches, train_batches
@@ -33,7 +32,7 @@ from jaxscale_lm.model.transformer import Transformer, build_model
 from jaxscale_lm.training.checkpoint import Checkpointer
 from jaxscale_lm.training.metrics import MetricAggregator
 from jaxscale_lm.training.optimizer import build_optimizer
-from jaxscale_lm.training.state import TrainState, create_train_state
+from jaxscale_lm.training.state import create_train_state
 from jaxscale_lm.training.step import make_eval_step, make_train_step
 from jaxscale_lm.types import Batch
 from jaxscale_lm.utils.logging import get_logger, log_event
@@ -73,7 +72,9 @@ class Trainer:
         )
         self.state = place_tree(self.state, self._replicated)
         self._train_step = jax.jit(
-            make_train_step(self.graphdef, tx, schedule, config.training.gradient_accumulation_steps)
+            make_train_step(
+                self.graphdef, tx, schedule, config.training.gradient_accumulation_steps
+            )
         )
         self._eval_step = jax.jit(make_eval_step(self.graphdef))
 
@@ -138,19 +139,25 @@ class Trainer:
             batch_size=self.config.data.batch_size,
             num_batches=self.config.evaluation.num_batches,
         ):
-            stats = self._eval_step(
-                self.state.params, place_batch(batch, self._eval_sharding)
-            )
+            stats = self._eval_step(self.state.params, place_batch(batch, self._eval_sharding))
             aggregator.update(jax.device_get(stats))
         return aggregator.summary()
 
     # -- training -----------------------------------------------------------
-    def train(self) -> dict[str, float]:
-        """Run to ``training.max_steps``; returns the final eval summary."""
+    def train(self, *, until_step: int | None = None) -> dict[str, float]:
+        """Run to ``training.max_steps``; returns the final eval summary.
+
+        Args:
+            until_step: stop after this global step instead of
+                ``training.max_steps`` (used to simulate an interrupted run
+                without changing the config — and therefore without changing
+                the learning-rate schedule horizon).
+        """
         cfg = self.config
+        target_step = min(until_step or cfg.training.max_steps, cfg.training.max_steps)
         start_step = int(self.state.step)
-        if start_step >= cfg.training.max_steps:
-            log_event(_logger, "nothing to do", step=start_step, max_steps=cfg.training.max_steps)
+        if start_step >= target_step:
+            log_event(_logger, "nothing to do", step=start_step, max_steps=target_step)
             try:
                 return self.evaluate()
             finally:
@@ -165,7 +172,7 @@ class Trainer:
         window_tokens = 0.0
 
         try:
-            for step in range(start_step, cfg.training.max_steps):
+            for step in range(start_step, target_step):
                 batch = place_batch(next(batches), self._batch_sharding)
                 self.state, metrics = self._train_step(self.state, batch)
 
@@ -221,10 +228,10 @@ class Trainer:
                     )
 
             # Final eval + save if the last step wasn't on a boundary.
-            if cfg.training.max_steps % cfg.evaluation.interval_steps != 0 or not last_eval:
+            if target_step % cfg.evaluation.interval_steps != 0 or not last_eval:
                 last_eval = self.evaluate()
                 log_event(_logger, "final evaluation", **last_eval)
-            if cfg.training.max_steps % cfg.checkpoint.interval_steps != 0:
+            if target_step % cfg.checkpoint.interval_steps != 0:
                 self.checkpointer.save(
                     self.state,
                     num_params=self.num_params,

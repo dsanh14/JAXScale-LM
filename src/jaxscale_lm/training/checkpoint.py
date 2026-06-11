@@ -125,9 +125,7 @@ class Checkpointer:
             step,
             args=ocp.args.Composite(
                 state=ocp.args.StandardSave(_to_savable(state)),
-                metadata=ocp.args.JsonSave(
-                    build_metadata(self._config, num_params, best_value)
-                ),
+                metadata=ocp.args.JsonSave(build_metadata(self._config, num_params, best_value)),
             ),
             metrics=metrics,
         )
@@ -148,15 +146,16 @@ class Checkpointer:
                 f"No checkpoint found under {self.directory}. "
                 f"Run training first or check the --checkpoint path."
             )
+        # Metadata first: an incompatible model config must fail with a clear
+        # error before Orbax hits opaque array-shape mismatches in the state.
+        metadata = self._manager.restore(
+            target, args=ocp.args.Composite(metadata=ocp.args.JsonRestore())
+        )["metadata"]
+        self._check_compatibility(metadata)
         restored = self._manager.restore(
             target,
-            args=ocp.args.Composite(
-                state=ocp.args.StandardRestore(_to_savable(template)),
-                metadata=ocp.args.JsonRestore(),
-            ),
+            args=ocp.args.Composite(state=ocp.args.StandardRestore(_to_savable(template))),
         )
-        metadata = restored["metadata"]
-        self._check_compatibility(metadata)
         state = _from_savable(restored["state"], template)
         log_event(_logger, "checkpoint restore", step=target, directory=str(self.directory))
         return state, metadata
@@ -164,6 +163,12 @@ class Checkpointer:
     def _check_compatibility(self, metadata: dict) -> None:
         saved_model = metadata.get("model_config")
         current_model = self._config.model.model_dump(mode="json")
+        if saved_model is None:
+            raise ValueError(
+                f"Checkpoint at {self.directory} has no 'model_config' in its metadata; "
+                f"it is incomplete or was written by an incompatible version. "
+                f"Metadata keys present: {sorted(metadata)}"
+            )
         if saved_model != current_model:
             diff = {
                 k: (saved_model.get(k), current_model.get(k))
@@ -197,6 +202,14 @@ def read_metadata(directory: Path, step: int | None = None) -> tuple[int, dict]:
     Returns ``(step, metadata)``. Used by inference/serving to rebuild the
     model config without a full Trainer.
     """
+    if not directory.is_dir():
+        # Check before handing the path to Orbax: CheckpointManager would try
+        # to create the directory and fail with an opaque OSError instead.
+        raise FileNotFoundError(
+            f"Checkpoint directory {directory} does not exist. "
+            f"Pass a run directory like artifacts/checkpoints/<run_name> "
+            f"(optionally suffixed with /latest or /<step>)."
+        )
     manager = ocp.CheckpointManager(directory.resolve())
     try:
         target = step if step is not None else manager.latest_step()
@@ -204,9 +217,7 @@ def read_metadata(directory: Path, step: int | None = None) -> tuple[int, dict]:
             raise FileNotFoundError(
                 f"No checkpoint steps found under {directory}; train a model first."
             )
-        restored = manager.restore(
-            target, args=ocp.args.Composite(metadata=ocp.args.JsonRestore())
-        )
+        restored = manager.restore(target, args=ocp.args.Composite(metadata=ocp.args.JsonRestore()))
         result: dict = restored["metadata"]
         return target, result
     finally:
