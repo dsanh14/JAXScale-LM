@@ -18,6 +18,8 @@ import jax
 import jax.numpy as jnp
 import optax
 
+from jaxscale_lm.types import ArrayLike
+
 
 class LossStats(NamedTuple):
     """Sufficient statistics for token-weighted aggregation (all float32)."""
@@ -27,16 +29,17 @@ class LossStats(NamedTuple):
     valid_tokens: jax.Array  # Σ loss_mask
 
 
-def loss_stats(logits: jax.Array, target_ids: jax.Array, loss_mask: jax.Array) -> LossStats:
+def loss_stats(logits: jax.Array, target_ids: ArrayLike, loss_mask: ArrayLike) -> LossStats:
     """Compute summed NLL / accuracy statistics for one (micro)batch.
 
     Args:
         logits: ``[batch, seq, vocab]`` float32.
-        target_ids: ``[batch, seq]`` int32.
+        target_ids: ``[batch, seq]`` int32 (device or host array).
         loss_mask: ``[batch, seq]`` float32, 1.0 on real targets.
     """
+    target_ids = jnp.asarray(target_ids)
     nll = optax.softmax_cross_entropy_with_integer_labels(logits, target_ids)
-    mask = loss_mask.astype(jnp.float32)
+    mask = jnp.asarray(loss_mask, jnp.float32)
     correct = (jnp.argmax(logits, axis=-1) == target_ids).astype(jnp.float32)
     return LossStats(
         nll_sum=jnp.sum(nll * mask),

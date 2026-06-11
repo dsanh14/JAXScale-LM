@@ -67,9 +67,7 @@ class TestCausality:
         # Perturb the last 4 tokens; logits at positions < 8 must be identical.
         perturbed = tokens.at[:, 8:].set((tokens[:, 8:] + 1) % CFG.vocab_size)
         logits_b, _ = model(perturbed)
-        np.testing.assert_array_equal(
-            np.asarray(logits_a[:, :8]), np.asarray(logits_b[:, :8])
-        )
+        np.testing.assert_array_equal(np.asarray(logits_a[:, :8]), np.asarray(logits_b[:, :8]))
         # Sanity: the perturbation does change later logits.
         assert not np.allclose(np.asarray(logits_a[:, 8:]), np.asarray(logits_b[:, 8:]))
 
@@ -194,8 +192,9 @@ class TestParameters:
 
     def test_preset_parameter_counts_stable(self):
         """Regression guard: preset sizes stay in their documented ranges."""
-        from jaxscale_lm.config import load_config
         from pathlib import Path
+
+        from jaxscale_lm.config import load_config
 
         config_dir = Path(__file__).parent.parent.parent / "configs"
         tiny = build_model(load_config(config_dir / "model" / "tiny.yaml").model, seed=0)

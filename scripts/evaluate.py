@@ -37,9 +37,7 @@ def main() -> None:
     if args.num_batches is not None:
         config = config.model_copy(
             update={
-                "evaluation": config.evaluation.model_copy(
-                    update={"num_batches": args.num_batches}
-                )
+                "evaluation": config.evaluation.model_copy(update={"num_batches": args.num_batches})
             }
         )
     setup_logging(config.logging.level, config.logging.json_format)

@@ -97,9 +97,7 @@ def create_app(config: Config, initial_checkpoint: str | None = None) -> FastAPI
     # -- models ---------------------------------------------------------------
     @app.get("/v1/models", response_model=ModelListResponse)
     async def list_models() -> ModelListResponse:
-        return ModelListResponse(
-            models=[ModelInfo(**_entry_fields(e)) for e in registry.list()]
-        )
+        return ModelListResponse(models=[ModelInfo(**_entry_fields(e)) for e in registry.list()])
 
     @app.get("/v1/models/{model_id}", response_model=ModelInfo)
     async def get_model(model_id: str) -> ModelInfo:

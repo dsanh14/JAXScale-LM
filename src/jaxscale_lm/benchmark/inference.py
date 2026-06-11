@@ -208,7 +208,7 @@ def run_cache_comparison(config: Config, setup: _Setup) -> list[BenchmarkRecord]
 
         for name, fn in (("cached", cached_once), ("naive", naive_once)):
             for _ in range(max(bench.warmup_iterations, 1)):
-                out = fn()
+                fn()
             outs = [fn() for _ in range(max(bench.measure_iterations // 2, 3))]
             decode_samples = [o.timing.decode_s for o in outs]
             n = len(outs)

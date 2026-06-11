@@ -13,12 +13,12 @@ import os
 import tempfile
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 
-class ModelStatus(str, Enum):
+class ModelStatus(StrEnum):
     REGISTERED = "REGISTERED"
     LOADING = "LOADING"
     READY = "READY"
@@ -77,9 +77,7 @@ class ModelRegistry:
                 f"Unsupported registry version in {self.path}: "
                 f"{raw.get('registry_version')!r} (expected 1)."
             )
-        self._entries = {
-            key: ModelEntry(**value) for key, value in raw["models"].items()
-        }
+        self._entries = {key: ModelEntry(**value) for key, value in raw["models"].items()}
 
     def _persist(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,9 +109,7 @@ class ModelRegistry:
 
     def get(self, model_id: str) -> ModelEntry:
         if model_id not in self._entries:
-            raise KeyError(
-                f"Unknown model id {model_id!r}; registered: {sorted(self._entries)}"
-            )
+            raise KeyError(f"Unknown model id {model_id!r}; registered: {sorted(self._entries)}")
         return self._entries[model_id]
 
     def list(self) -> list[ModelEntry]:

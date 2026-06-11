@@ -35,7 +35,9 @@ def eval_batch_sharding(mesh: Mesh) -> NamedSharding:
     return NamedSharding(mesh, PartitionSpec())
 
 
-def validate_batch_divisibility(microbatch_size: int, mesh: Mesh, config: DistributedConfig) -> None:
+def validate_batch_divisibility(
+    microbatch_size: int, mesh: Mesh, config: DistributedConfig
+) -> None:
     """Fail fast if the microbatch can't be evenly sharded over the data axis."""
     data_axis = config.axis_names[0]
     data_size = mesh.shape[data_axis]

@@ -126,7 +126,8 @@ class TestTrainStep:
         assert int(state.step) == 1
         after = jax.tree.leaves(state.params)
         changed = any(
-            not np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(before, after, strict=True)
+            not np.allclose(np.asarray(a), np.asarray(b))
+            for a, b in zip(before, after, strict=True)
         )
         assert changed, "optimizer step did not modify parameters"
 
@@ -188,7 +189,7 @@ class TestEvalStep:
     def test_eval_deterministic_with_dropout_config(self):
         cfg = CFG.model_copy(update={"dropout_rate": 0.5, "attention_dropout_rate": 0.5})
         model = build_model(cfg, seed=0)
-        tx, schedule = build_optimizer(OptimizerConfig(warmup_steps=0), 100)
+        tx, _schedule = build_optimizer(OptimizerConfig(warmup_steps=0), 100)
         graphdef, state = create_train_state(model, tx, make_key(0))
         eval_fn = jax.jit(make_eval_step(graphdef))
         batch = _batch(1, 4, 16)

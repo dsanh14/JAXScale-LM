@@ -147,4 +147,4 @@ class ModelManager:
 def _parameter_count(engine: InferenceEngine) -> int:
     from jaxscale_lm.utils.tree import count_params
 
-    return count_params(engine._params)  # noqa: SLF001 - manager is a friend class
+    return count_params(engine._params)

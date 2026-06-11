@@ -87,8 +87,7 @@ def run(config: Config) -> list[BenchmarkRecord]:
                     mode="steady_state",
                     status="failed",
                     error=(
-                        f"compute dtype {dtype} unsupported on backend "
-                        f"'{jax.default_backend()}'"
+                        f"compute dtype {dtype} unsupported on backend '{jax.default_backend()}'"
                     ),
                     dtype=dtype,
                 )

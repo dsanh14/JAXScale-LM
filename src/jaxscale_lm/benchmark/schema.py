@@ -25,9 +25,7 @@ SCHEMA_VERSION = 1
 
 def _git(*args: str) -> str | None:
     try:
-        out = subprocess.run(
-            ["git", *args], capture_output=True, text=True, timeout=10, check=True
-        )
+        out = subprocess.run(["git", *args], capture_output=True, text=True, timeout=10, check=True)
         return out.stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
         # Not a git repo / git unavailable: recorded as unknown, not fatal.
@@ -36,8 +34,9 @@ def _git(*args: str) -> str | None:
 
 def environment_info() -> dict[str, Any]:
     """Capture the software/hardware environment once per run."""
+    from importlib.metadata import version as pkg_version
+
     import flax
-    import jaxlib
     import optax
     import orbax.checkpoint as ocp
 
@@ -48,7 +47,7 @@ def environment_info() -> dict[str, Any]:
         "git_dirty": bool(status) if status is not None else None,
         "python_version": sys.version.split()[0],
         "jax_version": jax.__version__,
-        "jaxlib_version": jaxlib.__version__,
+        "jaxlib_version": pkg_version("jaxlib"),
         "flax_version": flax.__version__,
         "optax_version": optax.__version__,
         "orbax_version": ocp.__version__,

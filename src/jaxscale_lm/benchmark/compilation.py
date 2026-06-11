@@ -14,11 +14,10 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import jax
-import jax.numpy as jnp
 from flax import nnx
 
-from jaxscale_lm.config import Config
 from jaxscale_lm.benchmark.schema import BenchmarkRecord, record_from_timing
+from jaxscale_lm.config import Config
 from jaxscale_lm.model.transformer import build_model
 from jaxscale_lm.utils.timing import compilation_count, measure, time_synchronized
 

@@ -16,7 +16,7 @@ regression test).
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import jax
 import jax.numpy as jnp
@@ -50,9 +50,7 @@ def make_train_step(
     ) -> tuple[Any, LossStats]:
         def loss_fn(p: nnx.State) -> tuple[jax.Array, LossStats]:
             model = nnx.merge(graphdef, p)
-            logits, _ = model(
-                batch.input_ids, deterministic=False, rngs=nnx.Rngs(dropout=key)
-            )
+            logits, _ = model(batch.input_ids, deterministic=False, rngs=nnx.Rngs(dropout=key))
             stats = loss_stats(logits, batch.target_ids, batch.loss_mask)
             # Differentiate the *sum* so accumulated grads add linearly.
             return stats.nll_sum, stats
@@ -86,16 +84,16 @@ def make_train_step(
                 correct_sum=jnp.zeros((), jnp.float32),
                 valid_tokens=jnp.zeros((), jnp.float32),
             )
-            (grads, stats), _ = jax.lax.scan(
-                body, (zero_grads, zero_stats), (batch, micro_keys)
-            )
+            (grads, stats), _ = jax.lax.scan(body, (zero_grads, zero_stats), (batch, micro_keys))
 
         # Normalize by total valid tokens across all microbatches.
         denom = jnp.maximum(stats.valid_tokens, 1.0)
         grads = jax.tree.map(lambda g: g / denom, grads)
 
         updates, opt_state = tx.update(grads, state.opt_state, state.params)
-        params = optax.apply_updates(state.params, updates)
+        # apply_updates is typed over optax's loose ArrayTree; the structure
+        # is the params nnx.State going in, so it is one coming out.
+        params = cast(nnx.State, optax.apply_updates(state.params, updates))
         new_state = TrainState(
             params=params,
             opt_state=opt_state,
@@ -106,7 +104,7 @@ def make_train_step(
             "loss": stats.nll_sum / denom,
             "accuracy": stats.correct_sum / denom,
             "valid_tokens": stats.valid_tokens,
-            "grad_norm": optax.global_norm(grads),
+            "grad_norm": optax.tree.norm(grads),
             "learning_rate": schedule(state.step),
         }
         return new_state, metrics

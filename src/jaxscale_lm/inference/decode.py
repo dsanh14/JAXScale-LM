@@ -31,9 +31,7 @@ def make_cached_decode_fn(graphdef: nnx.GraphDef) -> CachedDecodeFn:
     nothing else is recomputed.
     """
 
-    def decode(
-        params: nnx.State, token: jax.Array, cache: KVCache
-    ) -> tuple[jax.Array, KVCache]:
+    def decode(params: nnx.State, token: jax.Array, cache: KVCache) -> tuple[jax.Array, KVCache]:
         model = nnx.merge(graphdef, params)
         logits, new_cache = model(token, cache=cache, deterministic=True)
         assert new_cache is not None

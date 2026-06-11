@@ -146,16 +146,27 @@ class TestLoader:
         assert batch.loss_mask.dtype == np.float32
 
     def test_train_stream_deterministic(self, bundle):
-        a = [b.input_ids for _, b in zip(range(5), train_batches(bundle.train, 4, seed=0))]
-        b = [b.input_ids for _, b in zip(range(5), train_batches(bundle.train, 4, seed=0))]
+        a = [
+            b.input_ids
+            for _, b in zip(range(5), train_batches(bundle.train, 4, seed=0), strict=False)
+        ]
+        b = [
+            b.input_ids
+            for _, b in zip(range(5), train_batches(bundle.train, 4, seed=0), strict=False)
+        ]
         for x, y in zip(a, b, strict=True):
             np.testing.assert_array_equal(x, y)
 
     def test_start_step_fast_forward_matches(self, bundle):
-        full = [b.input_ids for _, b in zip(range(6), train_batches(bundle.train, 4, seed=0))]
+        full = [
+            b.input_ids
+            for _, b in zip(range(6), train_batches(bundle.train, 4, seed=0), strict=False)
+        ]
         resumed = [
             b.input_ids
-            for _, b in zip(range(3), train_batches(bundle.train, 4, seed=0, start_step=3))
+            for _, b in zip(
+                range(3), train_batches(bundle.train, 4, seed=0, start_step=3), strict=False
+            )
         ]
         for x, y in zip(full[3:], resumed, strict=True):
             np.testing.assert_array_equal(x, y)

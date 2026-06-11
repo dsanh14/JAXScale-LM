@@ -23,7 +23,6 @@ from jaxscale_lm.distributed.diagnostics import describe_array, describe_mesh, f
 from jaxscale_lm.distributed.mesh import build_mesh
 from jaxscale_lm.distributed.partitioning import (
     replicated,
-    train_batch_sharding,
     validate_batch_divisibility,
 )
 from jaxscale_lm.distributed.placement import place_batch
@@ -116,10 +115,13 @@ _MULTI_DEVICE_SCRIPT = textwrap.dedent(
     from jaxscale_lm.config import load_config
     from jaxscale_lm.training.trainer import Trainer
 
+    from pathlib import Path
+
     config = load_config("configs/train/cpu_smoke.yaml")
     config = config.model_copy(update={
+        # model_copy(update=) skips validation, so coerce to Path explicitly.
         "project": config.project.model_copy(
-            update={"artifacts_dir": os.environ["TEST_TMPDIR"]}
+            update={"artifacts_dir": Path(os.environ["TEST_TMPDIR"])}
         ),
         "data": config.data.model_copy(update={"batch_size": 8}),
         "training": config.training.model_copy(update={"max_steps": 3}),
@@ -141,6 +143,12 @@ class TestSimulatedMultiDevice:
         ).strip()
         env["JAX_PLATFORMS"] = "cpu"
         env["TEST_TMPDIR"] = str(tmp_path)
+        # Pass the package location explicitly: the child must see the same
+        # jaxscale_lm as this process, independent of site/.pth processing.
+        import jaxscale_lm
+
+        pkg_root = os.path.dirname(os.path.dirname(jaxscale_lm.__file__))
+        env["PYTHONPATH"] = os.pathsep.join(p for p in (pkg_root, env.get("PYTHONPATH")) if p)
         result = subprocess.run(
             [sys.executable, "-c", _MULTI_DEVICE_SCRIPT],
             capture_output=True,

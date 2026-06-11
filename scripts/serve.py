@@ -36,9 +36,7 @@ def main() -> None:
     if args.port is not None:
         updates["port"] = args.port
     if updates:
-        config = config.model_copy(
-            update={"serving": config.serving.model_copy(update=updates)}
-        )
+        config = config.model_copy(update={"serving": config.serving.model_copy(update=updates)})
     setup_logging(config.logging.level, config.logging.json_format)
 
     app = create_app(config, initial_checkpoint=args.checkpoint)

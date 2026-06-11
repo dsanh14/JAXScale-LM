@@ -30,15 +30,11 @@ class SamplingParams:
         if self.temperature <= 0:
             raise ValueError(f"temperature must be > 0 when sampling, got {self.temperature}")
         if self.top_k < 0 or self.top_k > vocab_size:
-            raise ValueError(
-                f"top_k must be in [0, vocab_size={vocab_size}], got {self.top_k}"
-            )
+            raise ValueError(f"top_k must be in [0, vocab_size={vocab_size}], got {self.top_k}")
         if not 0 < self.top_p <= 1.0:
             raise ValueError(f"top_p must be in (0, 1], got {self.top_p}")
         if self.repetition_penalty is not None and self.repetition_penalty <= 0:
-            raise ValueError(
-                f"repetition_penalty must be positive, got {self.repetition_penalty}"
-            )
+            raise ValueError(f"repetition_penalty must be positive, got {self.repetition_penalty}")
 
 
 def top_k_filter(logits: jax.Array, k: int) -> jax.Array:
@@ -65,9 +61,7 @@ def top_p_filter(logits: jax.Array, p: float) -> jax.Array:
     return jnp.where(logits < cutoff, _FILTER_VALUE, logits)
 
 
-def apply_repetition_penalty(
-    logits: jax.Array, seen_mask: jax.Array, penalty: float
-) -> jax.Array:
+def apply_repetition_penalty(logits: jax.Array, seen_mask: jax.Array, penalty: float) -> jax.Array:
     """Penalize tokens already generated (CTRL-style).
 
     Args:

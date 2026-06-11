@@ -12,10 +12,10 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")  # headless; must precede pyplot import
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
-from jaxscale_lm.benchmark.schema import BenchmarkRecord  # noqa: E402
-from jaxscale_lm.utils.logging import get_logger, log_event  # noqa: E402
+from jaxscale_lm.benchmark.schema import BenchmarkRecord
+from jaxscale_lm.utils.logging import get_logger, log_event
 
 _logger = get_logger("plots")
 
@@ -45,7 +45,7 @@ def plot_compile_vs_seq(records: list[BenchmarkRecord], out_dir: Path) -> Path |
     fig, ax = plt.subplots(figsize=(6, 4))
     for label, recs in (("first call (compile+run)", first), ("steady state", steady)):
         recs = sorted(recs, key=lambda r: r.sequence_length or 0)
-        xs = [r.sequence_length for r in recs]
+        xs = [r.sequence_length or 0 for r in recs]
         ys = [(r.median_s or 0) * 1000 for r in recs]
         errs = [(r.std_s or 0) * 1000 for r in recs]
         ax.errorbar(xs, ys, yerr=errs, marker="o", label=label, capsize=3)
@@ -69,7 +69,7 @@ def plot_train_throughput(records: list[BenchmarkRecord], out_dir: Path) -> Path
     for dtype, group in by_dtype.items():
         group = sorted(group, key=lambda r: r.batch_size or 0)
         ax.plot(
-            [r.batch_size for r in group],
+            [r.batch_size or 0 for r in group],
             [r.extra["tokens_per_second"] for r in group],
             marker="o",
             label=dtype,
@@ -92,7 +92,7 @@ def plot_prefill_latency(records: list[BenchmarkRecord], out_dir: Path) -> Path 
     for batch, group in sorted(by_batch.items()):
         group = sorted(group, key=lambda r: r.prompt_length or 0)
         ax.errorbar(
-            [r.prompt_length for r in group],
+            [r.prompt_length or 0 for r in group],
             [(r.median_s or 0) * 1000 for r in group],
             yerr=[(r.std_s or 0) * 1000 for r in group],
             marker="o",
@@ -117,7 +117,7 @@ def plot_decode_latency(records: list[BenchmarkRecord], out_dir: Path) -> Path |
     for ctx, group in sorted(by_ctx.items()):
         group = sorted(group, key=lambda r: r.batch_size or 0)
         ax.errorbar(
-            [r.batch_size for r in group],
+            [r.batch_size or 0 for r in group],
             [(r.median_s or 0) * 1000 for r in group],
             yerr=[(r.std_s or 0) * 1000 for r in group],
             marker="o",
@@ -139,7 +139,7 @@ def plot_cache_comparison(records: list[BenchmarkRecord], out_dir: Path) -> Path
         return None
     fig, ax = plt.subplots(figsize=(6, 4))
     width = 0.35
-    gens = sorted({r.generate_length for r in cached})
+    gens = sorted({r.generate_length or 0 for r in cached})
     for offset, (label, group) in enumerate((("KV-cached", cached), ("naive", naive))):
         ys = []
         for g in gens:
@@ -171,7 +171,7 @@ def plot_tokens_per_second(records: list[BenchmarkRecord], out_dir: Path) -> Pat
     for prompt, group in sorted(by_prompt.items()):
         group = sorted(group, key=lambda r: r.generate_length or 0)
         ax.plot(
-            [r.generate_length for r in group],
+            [r.generate_length or 0 for r in group],
             [r.extra["generated_tokens_per_second"] for r in group],
             marker="o",
             label=f"prompt={prompt}",

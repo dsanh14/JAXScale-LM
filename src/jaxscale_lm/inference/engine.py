@@ -87,9 +87,7 @@ class InferenceEngine:
         step, metadata = read_metadata(ref.root, ref.step)
         config = Config.model_validate(metadata["config"])
         config = config.model_copy(
-            update={
-                "checkpoint": config.checkpoint.model_copy(update={"directory": ref.root})
-            }
+            update={"checkpoint": config.checkpoint.model_copy(update={"directory": ref.root})}
         )
 
         model = build_model(config.model, config.project.seed)

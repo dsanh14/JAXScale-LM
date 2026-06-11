@@ -32,7 +32,9 @@ def main() -> None:
     print(f"jaxscale version:  {metadata.get('jaxscale_lm_version')}")
     print(f"jax version:       {metadata.get('jax_version')}")
     print(f"parameters:        {metadata.get('parameter_count'):,}")
-    print(f"best metric:       {metadata.get('best_metric_name')} = {metadata.get('best_metric_value')}")
+    print(
+        f"best metric:       {metadata.get('best_metric_name')} = {metadata.get('best_metric_value')}"
+    )
     model = metadata.get("model_config", {})
     print(
         f"model:             {model.get('num_layers')}L x {model.get('hidden_size')}h, "
@@ -44,8 +46,10 @@ def main() -> None:
 
         engine = InferenceEngine.from_checkpoint(args.checkpoint)
         config = Config.model_validate(metadata["config"])
-        print(f"restore:           OK (step {engine.checkpoint_step}, "
-              f"compute_dtype {config.model.compute_dtype})")
+        print(
+            f"restore:           OK (step {engine.checkpoint_step}, "
+            f"compute_dtype {config.model.compute_dtype})"
+        )
 
 
 if __name__ == "__main__":

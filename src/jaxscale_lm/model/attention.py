@@ -123,9 +123,9 @@ class CausalSelfAttention(nnx.Module):
 
         # [batch, heads, q, k] logits in float32 for a stable softmax.
         scale = self.head_dim**-0.5
-        logits = jnp.einsum(
-            "bqhd,bkhd->bhqk", q.astype(jnp.float32), keys.astype(jnp.float32)
-        ) * scale
+        logits = (
+            jnp.einsum("bqhd,bkhd->bhqk", q.astype(jnp.float32), keys.astype(jnp.float32)) * scale
+        )
 
         causal = key_positions[None, :] <= positions[:, None]  # [q, k]
         mask = causal

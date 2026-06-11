@@ -53,7 +53,9 @@ def main() -> None:
     print(f"prompt tokens:     {result.prompt_tokens}")
     print(f"generated tokens:  {result.generated_tokens}")
     print(f"kv cache:          {result.cache_enabled}")
-    print(f"prefill latency:   {result.timing.prefill_s * 1000:.1f} ms (includes first-call compile)")
+    print(
+        f"prefill latency:   {result.timing.prefill_s * 1000:.1f} ms (includes first-call compile)"
+    )
     print(f"decode latency:    {result.timing.decode_s * 1000:.1f} ms")
     print(f"tokens/second:     {result.tokens_per_second:.1f}")
 

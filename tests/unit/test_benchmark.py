@@ -24,9 +24,7 @@ class TestSchema:
         assert data["status"] == "ok"
 
     def test_record_from_timing_statistics(self):
-        timing = TimingResult(
-            samples_s=tuple(float(i) for i in range(1, 11)), warmup_iterations=2
-        )
+        timing = TimingResult(samples_s=tuple(float(i) for i in range(1, 11)), warmup_iterations=2)
         record = record_from_timing("s", "n", "steady_state", timing, batch_size=4)
         assert record.mean_s == pytest.approx(5.5)
         assert record.median_s == pytest.approx(5.5)

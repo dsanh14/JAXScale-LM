@@ -96,9 +96,7 @@ class BenchmarkRunner:
             plans.append(("training", lambda: training.run(self.config)))
         inference_suites = suites & {"prefill", "decode", "e2e", "cache"}
         if inference_suites:
-            plans.append(
-                ("inference", lambda: inference.run(self.config, inference_suites))
-            )
+            plans.append(("inference", lambda: inference.run(self.config, inference_suites)))
 
         for suite_name, plan in plans:
             try:
@@ -161,9 +159,7 @@ class BenchmarkRunner:
         for suite in sorted({r.suite for r in self.records}):
             suite_records = [r for r in self.records if r.suite == suite]
             lines += [f"## {suite}", ""]
-            lines.append(
-                "| name | mode | status | median | p90 | std | iters | notes |"
-            )
+            lines.append("| name | mode | status | median | p90 | std | iters | notes |")
             lines.append("|---|---|---|---|---|---|---|---|")
             for r in suite_records:
                 med = f"{r.median_s * 1000:.2f} ms" if r.median_s is not None else "-"
@@ -173,7 +169,9 @@ class BenchmarkRunner:
                 for key in ("tokens_per_second", "ms_per_token", "first_call_over_steady"):
                     if key in r.extra:
                         value = r.extra[key]
-                        notes.append(f"{key}={value:.1f}" if isinstance(value, float) else str(value))
+                        notes.append(
+                            f"{key}={value:.1f}" if isinstance(value, float) else str(value)
+                        )
                 if r.status == "failed":
                     notes.append(f"ERROR: {(r.error or '')[:120]}")
                 lines.append(

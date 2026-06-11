@@ -55,7 +55,7 @@ _compile_count = 0
 _listener_registered = False
 
 
-def _on_event_duration(event: str, duration: float, **_: Any) -> None:
+def _on_event_duration(event: str, duration_secs: float, **kwargs: str | int) -> None:
     global _compile_count
     if event == _BACKEND_COMPILE_EVENT:
         _compile_count += 1
