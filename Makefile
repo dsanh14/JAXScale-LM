@@ -2,8 +2,8 @@ UV ?= uv
 RUN := $(UV) run
 
 .PHONY: install format lint typecheck test test-integration test-all \
-        train-smoke evaluate-smoke generate-smoke benchmark-smoke serve \
-        docker-build clean help
+        check-export train-smoke evaluate-smoke generate-smoke \
+        benchmark-smoke serve docker-build clean help
 
 install: ## Sync the environment (incl. dev tools)
 	$(UV) sync --extra dev
@@ -27,6 +27,9 @@ test-integration: ## Integration tests (train/checkpoint/serve smoke)
 
 test-all: ## Everything that runs on CPU
 	$(RUN) pytest -m "not accelerator"
+
+check-export: ## Verify the repo works from tracked files only (catches ignored sources)
+	bash scripts/check_clean_export.sh
 
 train-smoke: ## 10-step CPU training run on synthetic data
 	$(RUN) python scripts/train.py --config configs/train/cpu_smoke.yaml
