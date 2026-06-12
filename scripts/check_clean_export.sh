@@ -14,7 +14,8 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-tmp="$(mktemp -d -t jaxscale-clean-export)"
+# Portable across BSD and GNU mktemp (GNU requires the XXXXXX template).
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/jaxscale-clean-export.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
 # Tracked files only (the index): catches ignored-but-needed sources both
