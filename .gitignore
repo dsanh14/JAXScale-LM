@@ -27,5 +27,9 @@ artifacts/*
 # Environment
 .env
 
-# Claude Code session state
-.claude/
+# Claude Code session state. Keep repo guidance Markdown tracked.
+.claude/*
+!.claude/skills/
+!.claude/prompts/
+!.claude/checklists/
+!.claude/**/*.md
