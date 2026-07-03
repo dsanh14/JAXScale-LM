@@ -49,10 +49,37 @@ Every benchmark run writes the same next to its records. Restoring a
 checkpoint validates the stored model config against the current one and
 refuses silently-incompatible restores.
 
+## Run manifests
+
+Every trainer invocation (training *and* checkpoint-based evaluation, since
+both go through `Trainer`) writes a self-contained audit trail under
+`artifacts/runs/<run_id>/` ([run_manifest.py](../src/jaxscale_lm/utils/run_manifest.py)):
+
+```text
+artifacts/runs/<run_id>/
+  resolved_config.yaml   exact configuration the run executed with
+  environment.json       Python/JAX/jaxlib/Flax/Optax/Orbax versions, backend, devices
+  git.json               commit, dirty flag, branch (null outside a git repo)
+  run.json               run id/name, argv, seed, checkpoint directory
+  metrics.jsonl          one JSON line per event: trainer_initialized,
+                         resumed, train_step (loss/accuracy/grad_norm/lr/
+                         tokens_per_s), evaluation, final_evaluation
+  checkpoints            symlink to the stable checkpoint directory
+```
+
+Checkpoints deliberately live *outside* the run directory (at
+`<artifacts_dir>/checkpoints/<run_name>`) because resumption must find them
+across invocations; each invocation is its own run, and `run.json` plus the
+symlink record the linkage. Benchmark runs write the analogous layout under
+`artifacts/benchmarks/<run_id>/` (see [benchmarking.md](benchmarking.md));
+their environment/git capture is embedded in every record. Manifest writing
+is covered by `tests/integration/test_run_manifest.py`.
+
 ## Git and version capture
 
 Benchmark records embed the git commit, a dirty-tree flag, and the versions
-of jax/jaxlib/flax/optax/orbax plus Python. Checkpoint metadata records the
+of jax/jaxlib/flax/optax/orbax plus Python; training runs capture the same
+in `environment.json`/`git.json`. Checkpoint metadata records the
 jaxscale-lm and jax versions and the creation timestamp.
 
 ## Checkpoint completeness

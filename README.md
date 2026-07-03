@@ -70,19 +70,40 @@ locked environment):
 
 ```bash
 git clone <this-repo> && cd JAXScale-LM
-make install          # one-time environment sync (re-run after dependency changes)
-uv run --no-sync python scripts/inspect_devices.py
+make install          # environment sync (re-run after dependency changes)
+uv run python scripts/inspect_devices.py
 ```
 
-`make install` is the project's single sync point; all Makefile targets run
-with `uv run --no-sync` against that environment. (This also sidesteps a
-macOS quirk where a re-sync can mark venv files `UF_HIDDEN`, which
-Python ≥ 3.12.4 treats as a reason to skip `.pth` files — if imports ever
-fail with `ModuleNotFoundError: jaxscale_lm`, re-run `make install`.)
+The Makefile installs the project **non-editable** (`UV_NO_EDITABLE=1`):
+real files in site-packages, no `.pth`. This is deliberate — on macOS,
+external processes (e.g. iCloud syncing of `~/Documents`) can re-apply the
+`UF_HIDDEN` flag across `.venv`, and Python ≥ 3.12.4 silently skips hidden
+`.pth` files, which breaks *editable* imports at random times. Source edits
+still take effect immediately: `[tool.uv] cache-keys` covers `src/**/*.py`,
+so any `uv run` rebuilds the wheel when sources changed. If an externally
+created editable install ever misbehaves, `make install` or `make venv-fix`
+heals it.
 
-## CPU smoke test (~1 minute total)
+## One-command reproduction
 
 ```bash
+make reproduce-cpu    # verify + smoke: the full evidence chain (~5 minutes)
+```
+
+runs `make verify` (env sync, package import, ruff format+lint, pyright,
+the full CPU test suite) followed by `make smoke` (device inspection →
+validation of every shipped config → fresh 10-step training run with a
+NaN guard → checkpoint restore verification → token-weighted evaluation →
+KV-cached generation → quick benchmark sweep writing JSONL/CSV/Markdown/
+plots). Training leaves a reproducibility manifest under
+`artifacts/runs/<run_id>/` (resolved config, environment, git state,
+metrics history — see [docs/reproducibility.md](docs/reproducibility.md)).
+
+Individual steps:
+
+```bash
+make verify           # acceptance gate only
+make smoke            # workflow chain only
 make train-smoke      # 10 steps on deterministic synthetic data
 make evaluate-smoke   # token-weighted loss / perplexity / accuracy
 make generate-smoke   # greedy generation with the KV cache
@@ -95,32 +116,32 @@ make serve            # serve the smoke checkpoint on :8000
 Training:
 
 ```bash
-uv run --no-sync python scripts/download_data.py  --config configs/train/cpu_smoke.yaml
-uv run --no-sync python scripts/train_tokenizer.py --config configs/train/single_device.yaml
-uv run --no-sync python scripts/train.py          --config configs/train/cpu_smoke.yaml
+uv run python scripts/download_data.py  --config configs/train/cpu_smoke.yaml
+uv run python scripts/train_tokenizer.py --config configs/train/single_device.yaml
+uv run python scripts/train.py          --config configs/train/cpu_smoke.yaml
 ```
 
 Resume exactly from the latest (or a specific) checkpoint:
 
 ```bash
-uv run --no-sync python scripts/train.py --config configs/train/single_device.yaml --resume latest
-uv run --no-sync python scripts/train.py --config configs/train/single_device.yaml --resume 200
+uv run python scripts/train.py --config configs/train/single_device.yaml --resume latest
+uv run python scripts/train.py --config configs/train/single_device.yaml --resume 200
 ```
 
 Evaluation:
 
 ```bash
-uv run --no-sync python scripts/evaluate.py --checkpoint artifacts/checkpoints/cpu_smoke/latest
+uv run python scripts/evaluate.py --checkpoint artifacts/checkpoints/cpu_smoke/latest
 ```
 
 Generation (cached vs naive):
 
 ```bash
-uv run --no-sync python scripts/generate.py \
+uv run python scripts/generate.py \
   --checkpoint artifacts/checkpoints/cpu_smoke/latest \
   --prompt "Once upon a time" --max-new-tokens 64 --use-kv-cache
 
-uv run --no-sync python scripts/generate.py \
+uv run python scripts/generate.py \
   --checkpoint artifacts/checkpoints/cpu_smoke/latest \
   --prompt "Once upon a time" --max-new-tokens 64 --no-kv-cache
 ```
@@ -128,21 +149,21 @@ uv run --no-sync python scripts/generate.py \
 Serving:
 
 ```bash
-uv run --no-sync python scripts/serve.py \
+uv run python scripts/serve.py \
   --checkpoint artifacts/checkpoints/cpu_smoke/latest --host 127.0.0.1 --port 8000
 ```
 
 Benchmarks:
 
 ```bash
-uv run --no-sync python scripts/benchmark.py --config configs/benchmark/default.yaml
-uv run --no-sync python scripts/benchmark.py --config configs/benchmark/default.yaml --quick
+uv run python scripts/benchmark.py --config configs/benchmark/default.yaml
+uv run python scripts/benchmark.py --config configs/benchmark/default.yaml --quick
 ```
 
 Checkpoint inspection:
 
 ```bash
-uv run --no-sync python scripts/verify_checkpoint.py \
+uv run python scripts/verify_checkpoint.py \
   --checkpoint artifacts/checkpoints/cpu_smoke/latest --restore
 ```
 
@@ -248,11 +269,12 @@ src/jaxscale_lm/
   inference/        sampling, prefill, decode, generation, engine
   serving/          FastAPI app, schemas, registry, lifecycle, Prometheus metrics
   benchmark/        schema, suites, memory probe, runner, plots
+  utils/            device report, logging, seeds, timing, env capture, run manifests
 scripts/            CLI entry points (all support --help)
 tests/              unit / integration / regression (markers: unit, integration, slow, accelerator, multi_device)
 docs/               architecture, JAX concepts, sharding, benchmarking, reproducibility, limitations, results
 dashboards/         Prometheus scrape config (+ Grafana pointers)
-artifacts/          run outputs (gitignored): checkpoints, benchmarks, data caches
+artifacts/          run outputs (gitignored): checkpoints, benchmarks, runs/<run_id> manifests, data caches
 ```
 
 ## License
