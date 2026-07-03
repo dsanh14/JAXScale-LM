@@ -55,6 +55,17 @@ Every trainer invocation (training *and* checkpoint-based evaluation, since
 both go through `Trainer`) writes a self-contained audit trail under
 `artifacts/runs/<run_id>/` ([run_manifest.py](../src/jaxscale_lm/utils/run_manifest.py)):
 
+```mermaid
+flowchart LR
+    CMD["scripts/train.py --config ..."] --> TR[Trainer]
+    TR --> CK["artifacts/checkpoints/&lt;run_name&gt;/<br/>stable path — resumption target"]
+    TR --> MAN["artifacts/runs/&lt;run_id&gt;/"]
+    MAN --> F1[resolved_config.yaml]
+    MAN --> F2[environment.json + git.json + run.json]
+    MAN --> F3["metrics.jsonl (append-per-event)"]
+    MAN -.symlink.-> CK
+```
+
 ```text
 artifacts/runs/<run_id>/
   resolved_config.yaml   exact configuration the run executed with

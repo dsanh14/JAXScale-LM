@@ -3,6 +3,23 @@
 How every number in [results.md](results.md) is produced, and which
 comparisons are valid.
 
+## From config to committed evidence
+
+```mermaid
+flowchart LR
+    CFG[configs/benchmark/*.yaml] --> RUN[BenchmarkRunner<br/>warmup → timed → block_until_ready]
+    RUN --> REC["records.jsonl<br/>schema v1: raw samples +<br/>git commit/dirty + versions + devices"]
+    REC --> SUM[summary.csv / summary.md]
+    REC --> PLOTS[plots/*.png]
+    REC -->|"committed copy of one<br/>clean-tree run"| EVID["docs/benchmarks/&lt;run_id&gt;/"]
+    EVID -->|numbers transcribed,<br/>never invented| RES[docs/results.md]
+```
+
+Runs land under the gitignored `artifacts/benchmarks/<run_id>/`; exactly
+one clean-tree run is committed under
+[docs/benchmarks/20260703_175929_d8c6dc/](benchmarks/20260703_175929_d8c6dc/)
+as the auditable source for the results document.
+
 ## Core rules
 
 1. **Synchronize before stopping any timer.** JAX dispatch is asynchronous;

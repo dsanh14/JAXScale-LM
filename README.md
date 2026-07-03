@@ -16,6 +16,60 @@ hardware as small as a laptop CPU.
 > in modern JAX-based ML systems and has no affiliation with Google
 > DeepMind or any other organization.
 
+## The project in 90 seconds
+
+- **What**: a complete JAX training + inference + serving + benchmarking
+  stack around a deliberately tiny Transformer, structured the way real
+  systems are (typed configs, pure jitted steps, fixed-shape KV cache,
+  async Orbax checkpoints, warmup-gated serving, versioned benchmark
+  records).
+- **Why**: to demonstrate ML *systems* engineering — where the interesting
+  problems are compilation, shapes, state, and measurement — with every
+  claim backed by a test or a committed artifact, on hardware anyone has.
+- **What it demonstrates**: `jax.jit` tracing/compile cost and shape-keyed
+  caching, prefill/decode separation, KV-cache correctness *and* speedup,
+  gradient-accumulation ≡ large-batch equivalence, exact checkpoint
+  resumption, explicit PRNG discipline, run manifests, honest
+  benchmarking. Concept guide: [docs/jax_concepts.md](docs/jax_concepts.md).
+- **How to verify**: one command — `make reproduce-cpu`
+  ([reviewer quickstart](#reviewer-quickstart) below).
+- **Measured results** (CPU, committed evidence): first jitted call
+  **319×** steady state; new batch shape → fresh **~100 ms** recompile;
+  KV-cached decode **4.3×** naive full-prefix decode. Full tables:
+  [docs/results.md](docs/results.md), raw records:
+  [docs/benchmarks/20260703_175929_d8c6dc/](docs/benchmarks/20260703_175929_d8c6dc/).
+- **Limitations, up front**: CPU-only measurements, tiny models, simulated
+  multi-device tests, serialized serving — see
+  [What this project does *not* claim](#what-this-project-does-not-claim)
+  and [docs/limitations.md](docs/limitations.md).
+
+## Reviewer quickstart
+
+```bash
+make install                          # one-time env sync (uv-managed Python 3.12)
+UV_CACHE_DIR=.uv-cache make verify        # ~3 min
+UV_CACHE_DIR=.uv-cache make reproduce-cpu # ~5 min (includes verify)
+```
+
+- **`make verify`** proves the engineering hygiene: environment syncs from
+  the lock file, the package imports, `ruff format --check` + `ruff check`
+  pass, `pyright` reports zero errors, and the full CPU test suite passes —
+  including the numerical invariants (gradient-accumulation equivalence,
+  KV-cached ≡ full-prefix decode, interrupted ≡ uninterrupted training,
+  causal-mask isolation, token-weighted eval, deterministic greedy decode).
+- **`make reproduce-cpu`** additionally proves the system end-to-end:
+  device inspection → validation of every shipped config → a fresh 10-step
+  training run (NaN-guarded) → checkpoint restore verification →
+  token-weighted evaluation → KV-cached generation → a quick benchmark
+  sweep. It leaves auditable evidence behind: a run manifest under
+  `artifacts/runs/<run_id>/` (resolved config, environment, git state,
+  metrics history) and benchmark artifacts under
+  `artifacts/benchmarks/<run_id>/` (JSONL records with raw samples, CSV/
+  Markdown summaries, plots).
+
+(`UV_CACHE_DIR=.uv-cache` keeps uv's cache inside the repo — useful in
+sandboxed environments; omit it if your global uv cache is accessible.)
+
 ## Why JAX for ML systems
 
 JAX makes the systems layer *explicit* where most frameworks hide it:
@@ -51,17 +105,69 @@ flowchart LR
 Full diagrams (training, inference, serving, distributed layout, checkpoint
 and registry lifecycles): [docs/architecture.md](docs/architecture.md).
 
-## Main capabilities
+## Technical highlights
 
-- Decoder-only Transformer (RoPE, pre-norm RMSNorm, optional GQA config) in Flax NNX
-- Single-device and mesh-based data-parallel training (`data`/`model` axes)
-- Mixed precision with separate parameter/compute dtypes; float32 reductions
-- Gradient accumulation that is *provably* equivalent to large-batch updates
-- Orbax checkpointing with exact resumption (params + optimizer + step + RNG)
-- KV-cached generation with prefill/decode separation and a naive baseline
-- FastAPI serving with model registry, warmup-before-ready, Prometheus metrics
-- A benchmark harness producing JSONL + CSV + Markdown + PNG plots with
-  full environment disclosure
+Each bullet links to the code and to the test or artifact that backs it —
+nothing here is aspirational:
+
+- **Decoder-only Transformer in Flax NNX from first principles** — RoPE,
+  pre-norm RMSNorm, GQA-ready config
+  ([model/](src/jaxscale_lm/model/); shapes, masking, and dtype invariants
+  in [tests/unit/test_model.py](tests/unit/test_model.py))
+- **Pure jitted train step with explicit PRNG handling** — dropout keys
+  derived per step by `fold_in`; the root key lives in checkpointed state
+  ([training/step.py](src/jaxscale_lm/training/step.py))
+- **Gradient accumulation via `lax.scan`, tested equivalent to the
+  large-batch update**
+  (`tests/unit/test_training.py::TestGradientAccumulation`)
+- **Orbax checkpointing with exact resumption** — train-N → save → restore
+  → train-M equals train-(N+M) on params, optimizer state, and eval loss
+  (`tests/integration/test_train_checkpoint.py::TestExactResumption`)
+- **Fixed-capacity KV cache** — one decode compile for all steps; cached
+  decode tested equal to full-prefix decode, and benchmarked 4.3× faster
+  ([model/cache.py](src/jaxscale_lm/model/cache.py),
+  `tests/unit/test_inference.py`, [docs/results.md](docs/results.md))
+- **Mesh-based data-parallel training** — same code path for 1 or N
+  devices; multi-device logic tested under simulated CPU devices,
+  explicitly never presented as scaling
+  ([distributed/](src/jaxscale_lm/distributed/), [docs/sharding.md](docs/sharding.md))
+- **Benchmark harness with raw samples and clean git metadata** —
+  schema-versioned JSONL records carrying commit + dirty flag, library
+  versions, device inventory; p99 withheld below 20 samples
+  ([benchmark/schema.py](src/jaxscale_lm/benchmark/schema.py),
+  [docs/benchmarks/20260703_175929_d8c6dc/](docs/benchmarks/20260703_175929_d8c6dc/))
+- **Run manifests** — every training/eval invocation writes resolved
+  config, environment, git state, and a metrics history under
+  `artifacts/runs/<run_id>/`
+  ([utils/run_manifest.py](src/jaxscale_lm/utils/run_manifest.py),
+  [docs/reproducibility.md](docs/reproducibility.md))
+- **FastAPI serving with Prometheus metrics** — model registry with a
+  legal-transition state machine, warmup before `/ready`, per-request
+  latency breakdown
+  ([serving/](src/jaxscale_lm/serving/),
+  [tests/integration/test_serving_api.py](tests/integration/test_serving_api.py))
+
+## What this project does NOT claim
+
+Stated here so no reader has to infer it from footnotes:
+
+- **No model-quality claims.** The models are tiny by design; generated
+  text is not the deliverable and is never evaluated as such.
+- **No production-serving claims.** Requests are serialized behind a lock;
+  there is no dynamic batching, auth, or rate limiting.
+- **No real multi-device scaling claims.** Only one physical device exists
+  here. Multi-device tests use simulated CPU devices
+  (`--xla_force_host_platform_device_count`) and prove *correctness only* —
+  they are labeled simulation everywhere they appear.
+- **No GPU/TPU throughput claims.** No accelerator numbers exist in this
+  repository; bf16 on CPU is emulated and its speed is deliberately not
+  reported.
+- **CPU benchmark numbers demonstrate mechanisms** (compile vs steady
+  state, cache complexity, shape recompilation, batching effects) — they
+  are not production performance and do not transfer to accelerators.
+
+The full inventory, including deliberate scope cuts, lives in
+[docs/limitations.md](docs/limitations.md).
 
 ## Installation
 
@@ -84,26 +190,14 @@ so any `uv run` rebuilds the wheel when sources changed. If an externally
 created editable install ever misbehaves, `make install` or `make venv-fix`
 heals it.
 
-## One-command reproduction
+## Individual workflow targets
 
-```bash
-make reproduce-cpu    # verify + smoke: the full evidence chain (~5 minutes)
-```
-
-runs `make verify` (env sync, package import, ruff format+lint, pyright,
-the full CPU test suite) followed by `make smoke` (device inspection →
-validation of every shipped config → fresh 10-step training run with a
-NaN guard → checkpoint restore verification → token-weighted evaluation →
-KV-cached generation → quick benchmark sweep writing JSONL/CSV/Markdown/
-plots). Training leaves a reproducibility manifest under
-`artifacts/runs/<run_id>/` (resolved config, environment, git state,
-metrics history — see [docs/reproducibility.md](docs/reproducibility.md)).
-
-Individual steps:
+The [reviewer quickstart](#reviewer-quickstart) chains these; each also
+runs standalone:
 
 ```bash
 make verify           # acceptance gate only
-make smoke            # workflow chain only
+make smoke            # workflow chain only (devices → configs → train → restore → eval → generate → benchmark)
 make train-smoke      # 10 steps on deterministic synthetic data
 make evaluate-smoke   # token-weighted loss / perplexity / accuracy
 make generate-smoke   # greedy generation with the KV cache
@@ -255,6 +349,21 @@ Grouped-query attention, prompt bucketing, tensor parallelism on the
 `model` axis, activation checkpointing, dynamic batching, paged KV cache,
 speculative decoding, LoRA — ordered list in
 [docs/limitations.md](docs/limitations.md#roadmap-optional-extensions-in-rough-order-of-value).
+
+## Documentation map
+
+| Document | Read it for |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | component map; training/inference/serving flow diagrams; checkpoint + registry lifecycles |
+| [docs/jax_concepts.md](docs/jax_concepts.md) | the JAX/XLA mechanics this project teaches: tracing, jit caching, PRNG, async dispatch |
+| [docs/sharding.md](docs/sharding.md) | mesh/`NamedSharding` design; what simulated devices do and do not prove |
+| [docs/benchmarking.md](docs/benchmarking.md) | timing rules, suite definitions, valid vs invalid comparisons |
+| [docs/results.md](docs/results.md) | the measured numbers, with provenance and per-experiment commentary |
+| [docs/benchmarks/20260703_175929_d8c6dc/](docs/benchmarks/20260703_175929_d8c6dc/) | the committed raw evidence behind every number (records JSONL, summaries, plots) |
+| [docs/reproducibility.md](docs/reproducibility.md) | seeds, environment lock, run manifests, checkpoint completeness |
+| [docs/limitations.md](docs/limitations.md) | the honest inventory: scope cuts, measurement boundaries, roadmap |
+| [docs/senior_upgrade_plan.md](docs/senior_upgrade_plan.md) | the hardening audit: risk ranking, per-area status, definition of done |
+| [docs/implementation_plan.md](docs/implementation_plan.md) | the original build plan and key technical decisions |
 
 ## Repository structure
 

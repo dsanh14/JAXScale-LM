@@ -1,7 +1,10 @@
 # Architecture
 
 End-to-end structure of JAXScale-LM. Code references are package-relative
-under `src/jaxscale_lm/`.
+under `src/jaxscale_lm/`. The measured behavior of these flows (compile
+cost, prefill/decode latency, cache speedup) lives in
+[results.md](results.md); how those numbers are produced is in
+[benchmarking.md](benchmarking.md).
 
 ## Component map
 
