@@ -10,8 +10,9 @@ export UV_NO_EDITABLE := 1
 RUN := $(UV) run
 
 .PHONY: install venv-fix format lint typecheck test test-integration \
-        test-all check-export train-smoke evaluate-smoke generate-smoke \
-        benchmark-smoke serve docker-build clean help
+        test-all check-export verify smoke reproduce-cpu device-inspect \
+        config-validate checkpoint-verify train-smoke evaluate-smoke \
+        generate-smoke benchmark-smoke serve docker-build clean help
 
 install: ## Sync the environment (incl. dev tools, non-editable project install)
 	$(UV) sync --extra dev
@@ -41,6 +42,42 @@ test-all: venv-fix ## Everything that runs on CPU
 
 check-export: ## Verify the repo works from tracked files only (catches ignored sources)
 	bash scripts/check_clean_export.sh
+
+verify: ## Full acceptance gate: sync, import, format, lint, types, tests (fail-fast)
+	$(UV) sync --extra dev
+	$(RUN) python -c "import jaxscale_lm; print('import OK:', jaxscale_lm.__file__)"
+	$(RUN) ruff format --check src tests scripts
+	$(RUN) ruff check src tests scripts
+	$(RUN) pyright
+	$(RUN) pytest tests -q
+
+device-inspect: ## Print the JAX device topology
+	$(RUN) python scripts/inspect_devices.py
+
+config-validate: ## Validate every shipped config (composition + cross-checks)
+	$(RUN) python scripts/validate_configs.py
+
+checkpoint-verify: ## Restore the smoke checkpoint and verify its contents
+	$(RUN) python scripts/verify_checkpoint.py \
+		--checkpoint artifacts/checkpoints/cpu_smoke/latest --restore
+
+smoke: ## One-command CPU proof: devices → configs → train → restore → eval → generate → benchmark
+	$(MAKE) device-inspect
+	$(MAKE) config-validate
+	@# Fresh training run: cpu_smoke checkpoints are scratch outputs of this
+	@# target; removing them proves training (not resumption) on every run.
+	rm -rf artifacts/checkpoints/cpu_smoke
+	$(MAKE) train-smoke
+	$(MAKE) checkpoint-verify
+	$(MAKE) evaluate-smoke
+	$(MAKE) generate-smoke
+	$(MAKE) benchmark-smoke
+	@echo "smoke: PASS (checkpoints + run manifest + benchmark artifacts under artifacts/)"
+
+reproduce-cpu: ## Full CPU reproduction from a fresh clone: verify + smoke
+	$(MAKE) verify
+	$(MAKE) smoke
+	@echo "reproduce-cpu: PASS"
 
 train-smoke: venv-fix ## 10-step CPU training run on synthetic data
 	$(RUN) python scripts/train.py --config configs/train/cpu_smoke.yaml
