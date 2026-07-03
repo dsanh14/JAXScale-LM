@@ -39,6 +39,7 @@ def main() -> None:
     for key, value in summary.items():
         print(f"  {key}: {value:.6g}")
     print(f"checkpoints: {config.checkpoint_dir}")
+    print(f"run manifest: {trainer.manifest.run_dir}")
 
 
 if __name__ == "__main__":

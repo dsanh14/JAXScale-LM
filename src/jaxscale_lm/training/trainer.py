@@ -5,6 +5,7 @@ Responsibilities (host-side; never inside jit):
 - run the train loop with periodic eval / checkpoint / logging
 - detect unexpected recompilation via a jit-cache counter
 - save the resolved config next to the checkpoints
+- write a per-invocation reproducibility manifest (artifacts/runs/<run_id>/)
 - guarantee async checkpoint finalization on every exit path
 """
 
@@ -36,6 +37,7 @@ from jaxscale_lm.training.state import create_train_state
 from jaxscale_lm.training.step import make_eval_step, make_train_step
 from jaxscale_lm.types import Batch
 from jaxscale_lm.utils.logging import get_logger, log_event
+from jaxscale_lm.utils.run_manifest import RunManifest
 from jaxscale_lm.utils.seed import make_key
 from jaxscale_lm.utils.timing import compilation_count
 
@@ -99,6 +101,15 @@ class Trainer:
 
         self.checkpointer = Checkpointer(config.checkpoint_dir, config)
         save_resolved_config(config, config.checkpoint_dir / "resolved_config.yaml")
+        self.manifest = RunManifest.create(config, checkpoint_dir=config.checkpoint_dir)
+        self.manifest.log_metrics(
+            "trainer_initialized",
+            parameters=self.num_params,
+            effective_global_batch=effective_batch,
+            platform=jax.default_backend(),
+            device_count=jax.device_count(),
+        )
+        log_event(_logger, "run manifest", path=str(self.manifest.run_dir))
 
     # -- data ---------------------------------------------------------------
     def _stacked_train_batches(self, start_step: int) -> Iterator[Batch]:
@@ -127,6 +138,9 @@ class Trainer:
             "resumed from checkpoint",
             step=restored_step,
             saved_at=metadata.get("created_at"),
+        )
+        self.manifest.log_metrics(
+            "resumed", step=restored_step, saved_at=metadata.get("created_at")
         )
         return restored_step
 
@@ -159,7 +173,9 @@ class Trainer:
         if start_step >= target_step:
             log_event(_logger, "nothing to do", step=start_step, max_steps=target_step)
             try:
-                return self.evaluate()
+                summary = self.evaluate()
+                self.manifest.log_metrics("final_evaluation", step=start_step, **summary)
+                return summary
             finally:
                 self.checkpointer.close()
 
@@ -196,6 +212,15 @@ class Trainer:
                         lr=f"{float(metrics['learning_rate']):.2e}",
                         tokens_per_s=round(window_tokens / max(elapsed, 1e-9)),
                     )
+                    self.manifest.log_metrics(
+                        "train_step",
+                        step=step + 1,
+                        loss=loss,
+                        accuracy=float(metrics["accuracy"]),
+                        grad_norm=float(metrics["grad_norm"]),
+                        learning_rate=float(metrics["learning_rate"]),
+                        tokens_per_s=window_tokens / max(elapsed, 1e-9),
+                    )
                     window_start = time.perf_counter()
                     window_tokens = 0.0
 
@@ -219,6 +244,7 @@ class Trainer:
                 if (step + 1) % cfg.evaluation.interval_steps == 0:
                     last_eval = self.evaluate()
                     log_event(_logger, "evaluation", step=step + 1, **last_eval)
+                    self.manifest.log_metrics("evaluation", step=step + 1, **last_eval)
 
                 if (step + 1) % cfg.checkpoint.interval_steps == 0:
                     self.checkpointer.save(
@@ -231,6 +257,7 @@ class Trainer:
             if target_step % cfg.evaluation.interval_steps != 0 or not last_eval:
                 last_eval = self.evaluate()
                 log_event(_logger, "final evaluation", **last_eval)
+            self.manifest.log_metrics("final_evaluation", step=target_step, **last_eval)
             if target_step % cfg.checkpoint.interval_steps != 0:
                 self.checkpointer.save(
                     self.state,
