@@ -15,9 +15,12 @@ hardening/verification view of the finished system.
 - All six acceptance commands pass on this host (see §9) after the
   packaging fix described in §5.
 - Committed evidence: one full benchmark run under
-  `docs/benchmarks/20260611_085752_0eb57a/` (records JSONL + summaries +
-  plots), referenced by `docs/results.md`; local (gitignored) artifacts
-  under `artifacts/benchmarks/` and `artifacts/checkpoints/cpu_smoke/`.
+  `docs/benchmarks/20260703_175929_d8c6dc/` (records JSONL + summaries +
+  plots; clean tree at commit `6bca621`), referenced by `docs/results.md`;
+  it supersedes the June dirty-tree run `20260611_085752_0eb57a` (in git
+  history). Local (gitignored) artifacts live under
+  `artifacts/benchmarks/`, `artifacts/runs/`, and
+  `artifacts/checkpoints/cpu_smoke/`.
 
 ## 2. Current strengths
 
@@ -140,12 +143,12 @@ Compliant with `.claude/skills/benchmarking.md`:
 - Output layout: `artifacts/benchmarks/<run_id>/{records.jsonl,
   summary.csv, summary.md, plots/, resolved_config.yaml}`.
 - `docs/results.md` cites only the committed run
-  `docs/benchmarks/20260611_085752_0eb57a/` with git commit, versions,
+  `docs/benchmarks/20260703_175929_d8c6dc/` with git commit, versions,
   hardware disclosure, and explicit "not measured" statements for anything
   unmeasured. No fabricated numbers found.
 
-Remaining benchmark work: none blocking. Optional: regenerate results on
-the current commit once this pass lands (old run is labeled `git_dirty`).
+Remaining benchmark work: none. Results were regenerated from a clean-tree
+run at commit `6bca621` (2026-07-03), superseding the June dirty-tree run.
 
 ## 8. Documentation status
 
@@ -205,9 +208,12 @@ All three make targets are implemented and verified passing on this host
 5. **DONE — documentation polish**: README install/reproduction sections
    rewritten for the non-editable model and `make reproduce-cpu`;
    `docs/reproducibility.md` documents the run-manifest layout.
-6. Remaining, optional (explicitly *after* everything above, per
-   `.claude/skills/research-engineering.md`): fresh full benchmark run on
-   a clean commit to refresh `docs/results.md`; roadmap features (GQA
+6. **DONE — fresh benchmark evidence**: full suite re-run on the clean
+   tree at commit `6bca621` (run `20260703_175929_d8c6dc`, 29 ok /
+   0 failed, `git_dirty: false` in every record); `docs/results.md`
+   regenerated from those artifacts only, evidence committed under
+   `docs/benchmarks/20260703_175929_d8c6dc/` (supersedes the June
+   dirty-tree run, which remains in git history). Roadmap features (GQA
    runtime path, prompt bucketing, etc.) remain out of scope for this
    pass.
 

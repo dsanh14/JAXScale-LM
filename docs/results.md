@@ -3,19 +3,23 @@
 > **Rule for this file**: every number here is copied from a real benchmark
 > run produced by `scripts/benchmark.py` on the disclosed hardware. Nothing
 > is estimated. The raw evidence for the run cited below is committed under
-> [docs/benchmarks/20260611_085752_0eb57a/](benchmarks/20260611_085752_0eb57a/)
+> [docs/benchmarks/20260703_175929_d8c6dc/](benchmarks/20260703_175929_d8c6dc/)
 > (records JSONL, CSV/Markdown summaries, resolved config, plots).
 
 ## Run provenance
 
-- Run ID: `20260611_085752_0eb57a` (2026-06-11)
-- Command: `uv run python scripts/benchmark.py --config configs/benchmark/default.yaml`
-- Git: `7dfa39040182ebc09189774757adc79b025163a7` (dirty working tree —
-  benchmark ran during pre-commit verification of this revision)
-- Versions: Python 3.12.13, jax 0.10.1, flax 0.12.7, optax 0.2.8, orbax 0.12.0
-- Records: 29 ok, 0 failed; warmup 3, measured 10 iterations per steady-state
-  timing (5 for full-generation loops); raw samples preserved in
-  [records.jsonl](benchmarks/20260611_085752_0eb57a/records.jsonl).
+- Run ID: `20260703_175929_d8c6dc` (2026-07-03)
+- Command: `UV_CACHE_DIR=.uv-cache uv run python scripts/benchmark.py --config configs/benchmark/default.yaml`
+- Git: `6bca6212cf2bf4f36d12c0f3e20c38f7bb1c9ff8` (**clean working tree** —
+  `git_dirty: false` in every record; the run reproduces from this exact
+  commit)
+- Versions: Python 3.12.13, jax 0.10.1, jaxlib 0.10.1, flax 0.12.7,
+  optax 0.2.8, orbax 0.12.0
+- Records: 29 ok, 0 failed; warmup 3, measured 10 iterations per
+  steady-state timing (5 for full-generation loops); raw samples preserved
+  in [records.jsonl](benchmarks/20260703_175929_d8c6dc/records.jsonl).
+- p99 is withheld on every record (needs ≥ 20 samples; the maximum here
+  is 10) — per the schema's honesty rule.
 
 ## Hardware disclosure
 
@@ -35,25 +39,27 @@
 Tiny preset: 2 layers, hidden 64, 4 heads, vocab 259, float32 — 115,200
 trainable parameters (`parameter_count` in this run's records). Sequence
 lengths 64/128, batch sizes 1/2/4, prompts 16/64, 32 generated tokens.
+Methodology (sync rules, warmup, first-call separation):
+[benchmarking.md](benchmarking.md).
 
 ## Experiment 1 — JIT benefit (forward pass, batch 4)
 
 | seq | eager median | first jitted call | warmed jitted call | first/steady |
 |---|---|---|---|---|
-| 64  | 3.65 ms | 93.09 ms | 0.31 ms | 304.5× |
-| 128 | 3.63 ms | 89.30 ms | 0.65 ms | 136.5× |
+| 64  | 3.94 ms | 97.70 ms | 0.31 ms | 319.3× |
+| 128 | 3.76 ms | 88.84 ms | 0.66 ms | 133.9× |
 
 Compilation dominates the first call by two orders of magnitude; the warmed
-jitted path is ~6–12× faster than eager dispatch. Timing uses
+jitted path is ~6–13× faster than eager dispatch. Timing uses
 `block_until_ready` on every sample.
 
 ## Experiment 2 — Shape recompilation
 
 | call | batch | seq | recompiled? | wall time |
 |---|---|---|---|---|
-| repeat of seen shape | 1 | 64 | no | 0.34 ms |
-| repeat of seen shape | 1 | 128 | no | 0.63 ms |
-| new batch size | 2 | 64 | **yes** | 100.0 ms |
+| repeat of seen shape | 1 | 64 | no | 0.35 ms |
+| repeat of seen shape | 1 | 128 | no | 0.64 ms |
+| new batch size | 2 | 64 | **yes** | 105.70 ms |
 
 Re-invoking with a previously traced shape hits the executable cache; any
 new (batch, seq) pair pays a fresh ~100 ms compile. Detected via the
@@ -63,18 +69,20 @@ process-global compile counter (`utils/timing.compilation_count`).
 
 | step | median latency | tokens/s |
 |---|---|---|
-| batch 1, no accumulation | 1.05 ms | 60,894 |
-| batch 2, no accumulation | 1.65 ms | 77,420 |
-| batch 4, no accumulation | 2.80 ms | 91,270 |
-| batch 4 as 2×2 accumulation | 3.17 ms | 80,681 |
+| batch 1, no accumulation | 1.09 ms | 58,509 |
+| batch 2, no accumulation | 1.61 ms | 79,749 |
+| batch 4, no accumulation | 2.73 ms | 93,845 |
+| batch 4 as 2×2 accumulation | 3.12 ms | 81,951 |
 
 Throughput grows sublinearly with batch size (tiny model: dispatch overhead
 amortizes but compute saturates). Accumulating 2 microbatches of 2 costs
 ~13% throughput versus one physical batch of 4 — the price of the scan and
-extra optimizer bookkeeping. Update *equivalence* of the two is asserted
-numerically in `tests/unit/test_training.py::TestGradientAccumulation`.
-Device-memory savings are not measurable on the CPU backend (see
-docs/limitations.md); only host RSS is available.
+extra optimizer bookkeeping. The two paths end this measurement at the same
+loss to five decimal places (`final_loss` 5.200549 vs 5.200548 in the
+records), and update *equivalence* is asserted numerically in
+`tests/unit/test_training.py::TestGradientAccumulation`. Device-memory
+savings are not measurable on the CPU backend (see docs/limitations.md);
+only host RSS is available.
 
 ## Experiment 4 — Precision
 
@@ -87,12 +95,13 @@ and reporting it as a "precision speedup" would be misleading. bfloat16
 
 | decoder | decode time (median) | ms/token |
 |---|---|---|
-| KV-cached | 11.24 ms | 0.4 |
-| naive full-prefix | 46.58 ms | 1.5 |
+| KV-cached | 10.85 ms | 0.34 |
+| naive full-prefix | 46.39 ms | 1.45 |
 
-**4.1×** faster decode from the fixed-capacity cache at only 32 generated
+**4.3×** faster decode from the fixed-capacity cache at only 32 generated
 tokens over a 16-token prompt; the gap widens with longer prefixes since
-naive decode re-runs the full prefix every step (O(n²) vs O(n)).
+naive decode re-runs the full prefix every step (O(n²) vs O(n)). The
+harness also asserts both paths emit identical greedy tokens.
 
 ## Experiment 6 — Batch scaling
 
@@ -100,17 +109,17 @@ Prefill latency (median):
 
 | batch | prompt 16 | prompt 64 |
 |---|---|---|
-| 1 | 0.23 ms | 0.52 ms |
-| 2 | 0.33 ms | 0.89 ms |
-| 4 | 0.52 ms | 1.53 ms |
+| 1 | 0.20 ms | 0.52 ms |
+| 2 | 0.30 ms | 0.89 ms |
+| 4 | 0.50 ms | 1.67 ms |
 
 Single-token decode step (median):
 
 | batch | ctx 16 | ctx 64 | aggregate tokens/s (ctx 64) |
 |---|---|---|---|
-| 1 | 0.07 ms | 0.07 ms | 14,585 |
-| 2 | 0.10 ms | 0.10 ms | 19,717 |
-| 4 | 0.19 ms | 0.18 ms | 22,066 |
+| 1 | 0.07 ms | 0.07 ms | 15,345 |
+| 2 | 0.12 ms | 0.10 ms | 19,798 |
+| 4 | 0.18 ms | 0.18 ms | 22,509 |
 
 Decode latency is insensitive to cache fill (fixed-shape cache reads the
 full capacity either way) and batching raises aggregate throughput at
@@ -120,11 +129,15 @@ modest per-step cost.
 
 | prompt | time to first token | total | generated tokens/s |
 |---|---|---|---|
-| 16 | 0.21 ms | 11.24 ms | 2,902 |
-| 64 | 0.56 ms | 11.88 ms | 2,828 |
+| 16 | 0.24 ms | 11.23 ms | 2,911 |
+| 64 | 0.57 ms | 11.74 ms | 2,863 |
 
 Time-to-first-token tracks prefill (longer prompt → slower first token);
-steady decode throughput is essentially prompt-independent.
+steady decode throughput is essentially prompt-independent. End-to-end
+throughput sits far below the isolated decode-step rate because the
+generation loop includes sampling, token bookkeeping, and one host-device
+sync per token for the EOS check (see
+[benchmarking.md](benchmarking.md#decode-vs-end-to-end-numbers)).
 
 ## Experiment 7 — Data parallelism
 
@@ -136,11 +149,11 @@ measured here.
 ## Plots
 
 Rendered from this run, committed under
-[docs/benchmarks/20260611_085752_0eb57a/plots/](benchmarks/20260611_085752_0eb57a/plots/):
+[docs/benchmarks/20260703_175929_d8c6dc/plots/](benchmarks/20260703_175929_d8c6dc/plots/):
 
-![Compile vs steady state](benchmarks/20260611_085752_0eb57a/plots/compile_time_vs_sequence_length.png)
-![Training throughput](benchmarks/20260611_085752_0eb57a/plots/training_throughput_vs_batch_size.png)
-![Prefill latency](benchmarks/20260611_085752_0eb57a/plots/prefill_latency_vs_prompt_length.png)
-![Decode latency](benchmarks/20260611_085752_0eb57a/plots/decode_latency_vs_batch_size.png)
-![Naive vs cached](benchmarks/20260611_085752_0eb57a/plots/naive_vs_cached_generation.png)
-![Tokens per second](benchmarks/20260611_085752_0eb57a/plots/tokens_per_second_vs_generated_length.png)
+![Compile vs steady state](benchmarks/20260703_175929_d8c6dc/plots/compile_time_vs_sequence_length.png)
+![Training throughput](benchmarks/20260703_175929_d8c6dc/plots/training_throughput_vs_batch_size.png)
+![Prefill latency](benchmarks/20260703_175929_d8c6dc/plots/prefill_latency_vs_prompt_length.png)
+![Decode latency](benchmarks/20260703_175929_d8c6dc/plots/decode_latency_vs_batch_size.png)
+![Naive vs cached](benchmarks/20260703_175929_d8c6dc/plots/naive_vs_cached_generation.png)
+![Tokens per second](benchmarks/20260703_175929_d8c6dc/plots/tokens_per_second_vs_generated_length.png)
