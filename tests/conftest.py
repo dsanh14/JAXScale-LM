@@ -13,7 +13,16 @@ os.environ.setdefault("JAX_PLATFORMS", "cpu")
 
 import pytest
 
-from jaxscale_lm.config import Config, load_config
+try:
+    from jaxscale_lm.config import Config, load_config
+except ModuleNotFoundError as exc:  # pragma: no cover - environment failure path
+    raise ModuleNotFoundError(
+        "jaxscale_lm is not importable from the current environment. "
+        "Most likely the venv holds a stale editable install whose .pth file "
+        "was marked UF_HIDDEN by an external macOS process (Python >= 3.12.4 "
+        "skips hidden .pth files). Fix: run `make install` (non-editable "
+        "install, immune to this) or `make venv-fix`, then re-run the tests."
+    ) from exc
 
 _CONFIG_DIR = os.path.join(os.path.dirname(__file__), "..", "configs")
 

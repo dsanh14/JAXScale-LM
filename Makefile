@@ -1,21 +1,22 @@
 UV ?= uv
-# `make install` is the single sync point; --no-sync keeps every other
-# target from re-resolving the environment (faster, and on macOS a re-sync
-# can re-apply the hidden flag cleared in install:). Re-run `make install`
-# after changing dependencies.
-RUN := $(UV) run --no-sync
+# Install the project non-editable: real files in site-packages, no .pth.
+# On macOS, external processes (e.g. iCloud sync of ~/Documents) re-apply
+# the UF_HIDDEN flag across .venv, and Python >= 3.12.4 silently skips
+# hidden .pth files — which breaks *editable* imports at random times.
+# Non-editable installs have no .pth, so they are immune. Source edits
+# still propagate: [tool.uv] cache-keys includes src/**/*.py, and `uv run`
+# syncs (rebuilding the wheel) whenever sources changed.
+export UV_NO_EDITABLE := 1
+RUN := $(UV) run
 
 .PHONY: install venv-fix format lint typecheck test test-integration \
         test-all check-export train-smoke evaluate-smoke generate-smoke \
         benchmark-smoke serve docker-build clean help
 
-install: ## Sync the environment (incl. dev tools)
+install: ## Sync the environment (incl. dev tools, non-editable project install)
 	$(UV) sync --extra dev
-	@# Some uv installs on macOS mark venv files UF_HIDDEN; Python >= 3.12.4
-	@# silently skips hidden .pth files, which breaks the editable install.
-	@if [ "$$(uname)" = "Darwin" ]; then chflags -R nohidden .venv 2>/dev/null || true; fi
 
-venv-fix: ## (Darwin no-op guard) re-clear hidden flag on .pth files if an external sync restored it
+venv-fix: ## (Darwin guard) heal a venv whose .pth files were hidden by an external editable sync
 	@if [ "$$(uname)" = "Darwin" ]; then chflags nohidden .venv/lib/python*/site-packages/*.pth 2>/dev/null || true; fi
 
 format: venv-fix ## Auto-format with Ruff

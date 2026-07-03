@@ -38,6 +38,21 @@ dev = [
 requires = ["uv_build>=0.11,<0.13"]
 build-backend = "uv_build"
 
+[tool.uv]
+# The Makefile installs this project non-editable (UV_NO_EDITABLE=1): real
+# files in site-packages, no .pth. Rationale: on macOS, external processes
+# (e.g. iCloud sync of ~/Documents) recursively re-apply the UF_HIDDEN flag
+# inside .venv, and Python >= 3.12.4 silently skips hidden .pth files, which
+# breaks editable imports at random times. A non-editable install has no
+# .pth to skip, so imports are immune. cache-keys makes uv rebuild the wheel
+# when sources change, so `uv run` (which syncs by default) always executes
+# current code. reinstall-package makes every sync (including the implicit
+# sync in `uv run`) reinstall the project itself, so even a raw editable
+# `uv sync` always starts Python with a freshly written (non-hidden) .pth —
+# the external flag-setter needs minutes, not microseconds.
+cache-keys = [{ file = "pyproject.toml" }, { file = "src/**/*.py" }]
+reinstall-package = ["jaxscale-lm"]
+
 [tool.uv.build-backend]
 module-name = "jaxscale_lm"
 
@@ -89,4 +104,4 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["src/jaxscale_lm"]
+source = ["jaxscale_lm"]
