@@ -8,55 +8,21 @@ compared post-hoc. ``schema_version`` gates downstream tooling.
 
 from __future__ import annotations
 
-import platform as platform_mod
-import subprocess
-import sys
-import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
 from typing import Any
 
-import jax
-
+from jaxscale_lm.utils.environment import environment_info, new_run_id
 from jaxscale_lm.utils.timing import TimingResult
 
+__all__ = [
+    "SCHEMA_VERSION",
+    "BenchmarkRecord",
+    "environment_info",
+    "new_run_id",
+    "record_from_timing",
+]
+
 SCHEMA_VERSION = 1
-
-
-def _git(*args: str) -> str | None:
-    try:
-        out = subprocess.run(["git", *args], capture_output=True, text=True, timeout=10, check=True)
-        return out.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        # Not a git repo / git unavailable: recorded as unknown, not fatal.
-        return None
-
-
-def environment_info() -> dict[str, Any]:
-    """Capture the software/hardware environment once per run."""
-    from importlib.metadata import version as pkg_version
-
-    import flax
-    import optax
-    import orbax.checkpoint as ocp
-
-    status = _git("status", "--porcelain")
-    devices = jax.devices()
-    return {
-        "git_commit": _git("rev-parse", "HEAD"),
-        "git_dirty": bool(status) if status is not None else None,
-        "python_version": sys.version.split()[0],
-        "jax_version": jax.__version__,
-        "jaxlib_version": pkg_version("jaxlib"),
-        "flax_version": flax.__version__,
-        "optax_version": optax.__version__,
-        "orbax_version": ocp.__version__,
-        "platform": jax.default_backend(),
-        "host": platform_mod.platform(),
-        "device_names": sorted({d.device_kind for d in devices}),
-        "device_count": jax.device_count(),
-        "process_count": jax.process_count(),
-    }
 
 
 @dataclass
@@ -130,7 +96,3 @@ def record_from_timing(
         measure_iterations=n,
         **fields,
     )
-
-
-def new_run_id() -> str:
-    return f"{datetime.now(tz=UTC).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"

@@ -35,11 +35,11 @@ class TokenEmbedding(nnx.Module):
 
     def __call__(self, token_ids: jnp.ndarray) -> jnp.ndarray:
         """Embed ``[batch, seq]`` int ids to ``[batch, seq, hidden]``."""
-        return self.embedding.value.astype(self.compute_dtype)[token_ids]
+        return self.embedding[...].astype(self.compute_dtype)[token_ids]
 
     def attend(self, hidden: jnp.ndarray) -> jnp.ndarray:
         """Tied output head: project hidden states onto the vocabulary."""
-        return hidden @ self.embedding.value.astype(self.compute_dtype).T
+        return hidden @ self.embedding[...].astype(self.compute_dtype).T
 
 
 def rope_angles(
